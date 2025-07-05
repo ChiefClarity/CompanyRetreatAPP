@@ -567,27 +567,27 @@
         </header>
 
         <div class="tabs">
-            <button class="tab active" onclick="showTab('home')">
+            <button class="tab active" onclick="showTab('home', event)">
                 <span style="font-size: 1.2rem;">🏠</span>
                 <span>2025</span>
             </button>
-            <button class="tab" onclick="showTab('matches')">
+            <button class="tab" onclick="showTab('matches', event)">
                 <span style="font-size: 1.2rem;">⛳</span>
                 <span>Matches</span>
             </button>
-            <button class="tab" onclick="showTab('players')">
+            <button class="tab" onclick="showTab('players', event)">
                 <span style="font-size: 1.2rem;">👥</span>
                 <span>Players</span>
             </button>
-            <button class="tab" onclick="showTab('analytics')">
+            <button class="tab" onclick="showTab('analytics', event)">
                 <span style="font-size: 1.2rem;">📊</span>
                 <span>Analytics</span>
             </button>
-            <button class="tab" onclick="showTab('history')">
+            <button class="tab" onclick="showTab('history', event)">
                 <span style="font-size: 1.2rem;">🏆</span>
                 <span>History</span>
             </button>
-            <button class="tab" onclick="showTab('trends')">
+            <button class="tab" onclick="showTab('trends', event)">
                 <span style="font-size: 1.2rem;">📈</span>
                 <span>Trends</span>
             </button>
@@ -599,8 +599,10 @@
     </div>
 
     <script>
+        console.log('Script starting execution...');
+        
         // Tournament Data (will be loaded from Excel)
-        // const tournamentData = {
+        /* const tournamentData = {
             years: {
                 2018: { winner: "Portal", loser: "Pete", score: "9-7", captains: { Portal: "Javi Portal", Pete: "Pete Cabrera" } },
                 2019: { winner: "Al", loser: "Skip", score: "9-7", captains: { Al: "Alex Lastra", Skip: "Skippy Ramirez" } },
@@ -663,7 +665,7 @@
                 bestBall: { course: "Disney's Magnolia (White)", rating: 71.6, slope: 130 },
                 singles: { course: "Waldorf Astoria (Blue/White)", rating: 71.7, slope: 137 }
             }
-        };
+        }; */
 
         // Initialize empty data structures
         let matchData = {};
@@ -676,10 +678,16 @@
         // Function to load and parse Excel data
         async function loadExcelData() {
             try {
+                console.log('Starting Excel data load...');
                 const response = await fetch('/CR History.xlsx');
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch Excel file: ${response.status}`);
+                }
+                console.log('Excel file fetched successfully');
                 const arrayBuffer = await response.arrayBuffer();
                 const data = new Uint8Array(arrayBuffer);
                 const workbook = XLSX.read(data, { type: 'array' });
+                console.log('Excel file parsed, sheets:', Object.keys(workbook.Sheets));
                 
                 // Process Players sheet for overall stats
                 const playersSheet = workbook.Sheets['Players'];
@@ -733,10 +741,21 @@
                     2018: { winner: "Portal", loser: "Pete", score: "9-7", captains: { Portal: "Javi Portal", Pete: "Pete Cabrera" } }
                 };
                 
+                // Create playerList from loaded data
+                const playerList = Array.from(new Set(
+                    Object.values(matchData).flatMap(yearData => 
+                        [...Object.values(yearData.teamData || {}).flat()]
+                    )
+                )).filter(Boolean).sort();
+                
+                // Make playerList global
+                window.playerList = playerList;
+                
                 console.log('Excel data loaded successfully');
+                console.log('Total players found:', playerList.length);
                 
                 // Initialize the app with the loaded data
-                showTab('home');
+                showTab('2025');
                 displayRandomStat();
                 
             } catch (error) {
@@ -756,7 +775,8 @@
                 bestBallResults: [],
                 singlesResults: [],
                 teamData: {},
-                dailyScores: { friday: {}, saturday: {}, sunday: {} }
+                dailyScores: { friday: {}, saturday: {}, sunday: {} },
+                matches: [] // Add matches array for compatibility
             };
             
             // Group players by team
@@ -790,18 +810,23 @@
             const teamNames = Object.keys(teams);
             
             // Group by actual matches (need to pair up opposing teams)
-            for (let i = 0; i < scrambleArray.length; i++) {
-                const match1 = scrambleArray[i];
-                if (match1.result) {
+            // Find unique matches by pairing teams
+            const processedMatches = new Set();
+            scrambleArray.forEach(match1 => {
+                const key = match1.players.sort().join('|');
+                if (!processedMatches.has(key) && match1.result) {
+                    processedMatches.add(key);
+                    const isTeam1 = match1.team === teamNames[0];
                     result.scrambleResults.push({
                         match: result.scrambleResults.length + 1,
-                        [teamNames[0].toLowerCase()]: match1.team === teamNames[0] ? match1.players : null,
-                        [teamNames[1].toLowerCase()]: match1.team === teamNames[1] ? match1.players : null,
+                        pardo: isTeam1 ? match1.players : [],
+                        salas: isTeam1 ? [] : match1.players,
                         result: match1.result,
-                        score: match1.score
+                        score: match1.score,
+                        winner: match1.result === 'W' ? (isTeam1 ? 'pardo' : 'salas') : ''
                     });
                 }
-            }
+            });
             
             // Extract Best Ball matches (similar logic)
             const bestBallPairs = new Map();
@@ -873,6 +898,31 @@
             result.dailyScores.saturday[teamNames[1].toLowerCase()] = team2BestBall;
             result.dailyScores.sunday[teamNames[0].toLowerCase()] = team1Singles;
             result.dailyScores.sunday[teamNames[1].toLowerCase()] = team2Singles;
+            
+            // Create unified matches array for compatibility
+            result.scrambleResults.forEach(match => {
+                result.matches.push({
+                    ...match,
+                    type: 'Scramble',
+                    players: { pardo: match.pardo || [], salas: match.salas || [] }
+                });
+            });
+            
+            result.bestBallResults.forEach(match => {
+                result.matches.push({
+                    ...match,
+                    type: 'Best Ball',
+                    players: { pardo: match.pardo || [], salas: match.salas || [] }
+                });
+            });
+            
+            result.singlesResults.forEach(match => {
+                result.matches.push({
+                    ...match,
+                    type: 'Singles',
+                    players: { pardo: match.pardo ? [match.pardo] : [], salas: match.salas ? [match.salas] : [] }
+                });
+            });
             
             return result;
         }
@@ -962,14 +1012,37 @@
                 2018: { winner: "Portal", loser: "Pete", score: "9-7", captains: { Portal: "Javi Portal", Pete: "Pete Cabrera" } }
             };
             
+            // Set some basic player data
+            tournamentData.players = [
+                { rank: 1, name: "Danny Yanez", crs: 8, wins: 20, losses: 11, ties: 1, rating: 1.82, perfectAttendance: true },
+                { rank: 2, name: "Jordan Portal", crs: 7, wins: 14, losses: 6, ties: 1, rating: 2.33, perfectAttendance: false }
+            ];
+            
+            // Create a basic playerList
+            window.playerList = ["Danny Yanez", "Jordan Portal", "Javi Portal", "Carlos Enjamio", "Victor Riobueno"];
+            
             // Initialize the app with fallback data
-            showTab('home');
+            showTab('2025');
             displayRandomStat();
         }
 
         // Load Excel data when page loads
         window.addEventListener('load', () => {
+            console.log('Window loaded, starting Excel data load...');
             loadExcelData();
+        });
+        
+        // Also try DOMContentLoaded as backup
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM ready');
+            // Hide loading message if Excel doesn't load after timeout
+            setTimeout(() => {
+                const loadingDiv = document.querySelector('.loading');
+                if (loadingDiv && loadingDiv.textContent === 'Loading tournament data...') {
+                    console.error('Excel data failed to load after 5 seconds, loading fallback...');
+                    loadFallbackData();
+                }
+            }, 5000);
         });
 
         // Temporary hardcoded data for fallback
@@ -1101,7 +1174,7 @@
         };
 
         // Complete player handicap progression data (will be loaded from Excel)
-        // const handicapData = {
+        /* const handicapData = {
             "Danny Yanez": { 2018: 16, 2019: 14, 2020: 12, 2021: 10, 2022: 9, 2023: 8.5, 2024: 8, 2025: 8 },
             "Jordan Portal": { 2019: 0.5, 2020: 0, 2021: -0.5, 2022: -1, 2023: -2, 2024: -2.5, 2025: -3.1 },
             "Javi Portal": { 2018: 0, 2019: 0, 2020: 0.5, 2021: 0.5, 2022: 1, 2023: 1, 2024: 1.5, 2025: 1.5 },
@@ -1129,7 +1202,7 @@
             "Joey Pinto": { 2025: 30 },
             "Javi Salas": { 2022: 12, 2023: 11, 2024: 10, 2025: 9.5 },
             "Skippy Ramirez": { 2019: 15, 2020: 14, 2025: 16 }
-        };
+        }; */
 
         // Head-to-head records
         const headToHeadData = {};
@@ -1365,15 +1438,26 @@
 
         let currentTab = 'overview';
 
-        function showTab(tab) {
+        function showTab(tab, event) {
             currentTab = tab;
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            event.target.closest('.tab').classList.add('active');
+            
+            // If called from a click event, update the active tab
+            if (event && event.target) {
+                event.target.closest('.tab').classList.add('active');
+            } else {
+                // If called programmatically, find the tab by data attribute or default to first
+                const tabButton = document.querySelector(`[onclick*="'${tab}'"]`) || document.querySelector('.tab');
+                if (tabButton) {
+                    tabButton.classList.add('active');
+                }
+            }
             
             const content = document.getElementById('content');
             
             switch(tab) {
                 case 'home':
+                case '2025':
                     show2025Dashboard(content);
                     break;
                 case 'matches':
@@ -1510,8 +1594,8 @@
                                     ${yearData.scrambleResults.map((match, idx) => `
                                         <tr>
                                             <td>${idx + 1}</td>
-                                            <td>${match.pardo.join(' & ')}</td>
-                                            <td>${match.salas.join(' & ')}</td>
+                                            <td>${match.pardo ? match.pardo.join(' & ') : ''}</td>
+                                            <td>${match.salas ? match.salas.join(' & ') : ''}</td>
                                             <td class="${match.result === 'W' ? 'winner' : match.result === 'L' ? 'loser' : ''}">${match.result}</td>
                                             <td>${match.score}</td>
                                         </tr>
@@ -1543,8 +1627,8 @@
                                     ${yearData.bestBallResults.map((match, idx) => `
                                         <tr>
                                             <td>${idx + 1}</td>
-                                            <td>${match.pardo.join(' & ')}</td>
-                                            <td>${match.salas.join(' & ')}</td>
+                                            <td>${match.pardo ? match.pardo.join(' & ') : ''}</td>
+                                            <td>${match.salas ? match.salas.join(' & ') : ''}</td>
                                             <td class="${match.result === 'W' ? 'winner' : match.result === 'L' ? 'loser' : ''}">${match.result}</td>
                                             <td>${match.score}</td>
                                         </tr>
@@ -1603,7 +1687,18 @@
         }
 
         function showPlayerAnalytics(container) {
-            let selectedPlayer = "Danny Yanez";
+            // Check if players data is loaded
+            if (!tournamentData.players || tournamentData.players.length === 0) {
+                container.innerHTML = `
+                    <h2>Player Analytics</h2>
+                    <div class="metric-card">
+                        <p>No player data available. Please ensure the Excel file is loaded correctly.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let selectedPlayer = tournamentData.players[0].name || "Danny Yanez";
             
             const renderPlayerAnalytics = (playerName) => {
                 const player = tournamentData.players.find(p => p.name === playerName);
@@ -1979,10 +2074,16 @@
 
         function showTrends(container) {
             // Victory margin trends
-            const marginsByYear = Object.entries(tournamentData).map(([year, data]) => ({
-                year: parseInt(year),
-                margin: Math.abs(data.scores.pardo - data.scores.salas)
-            })).sort((a, b) => a.year - b.year);
+            const marginsByYear = Object.entries(tournamentData.years || {}).map(([year, data]) => {
+                // Parse score like "15.5-8.5" to calculate margin
+                const score = data.score || '';
+                const parts = score.split('-').map(s => parseFloat(s));
+                const margin = parts.length === 2 ? Math.abs(parts[0] - parts[1]) : 0;
+                return {
+                    year: parseInt(year),
+                    margin: margin
+                };
+            }).filter(m => m.margin > 0).sort((a, b) => a.year - b.year);
             
             const avgMarginEarly = marginsByYear.slice(0, 3).reduce((sum, m) => sum + m.margin, 0) / 3;
             const avgMarginRecent = marginsByYear.slice(-3).reduce((sum, m) => sum + m.margin, 0) / 3;
