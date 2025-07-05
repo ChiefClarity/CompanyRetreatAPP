@@ -131,3 +131,6 @@ dist
 
 # Replit debugger
 .breakpoints
+
+# macOS
+.DS_Store

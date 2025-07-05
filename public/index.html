@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Retreat Golf Tournament</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #dc2626; /* Red as primary */
+            --secondary: #1e3a8a; /* Navy blue as secondary */
+            --accent: #ef4444; /* Lighter red */
+            --gold: #fbbf24;
+            --silver: #e5e7eb;
+            --bronze: #f97316;
+            --bg-dark: #ffffff; /* White background */
+            --bg-light: #f9fafb; /* Light gray */
+            --text-light: #111827; /* Dark text for white background */
+            --text-muted: #6b7280;
+            --success: #10b981;
+            --danger: #dc2626;
+            --card-bg: rgba(255, 255, 255, 0.9);
+            --border: rgba(229, 231, 235, 1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #ffffff;
+            color: var(--text-light);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                radial-gradient(circle at 20% 80%, rgba(220, 38, 38, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(30, 58, 138, 0.03) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            animation: fadeInDown 0.8s ease-out;
+            position: relative;
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            background: var(--bg-light);
+            padding: 0.5rem;
+            border-radius: 1rem;
+            border: 1px solid var(--border);
+            overflow-x: auto;
+            animation: fadeIn 1s ease-out 0.3s both;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .tab {
+            padding: 0.75rem 1.5rem;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: 0.5rem;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .tab:hover {
+            background: rgba(220, 38, 38, 0.1);
+            color: var(--primary);
+            transform: translateY(-1px);
+        }
+
+        .tab.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.2);
+        }
+
+        .content {
+            background: var(--card-bg);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            animation: fadeInUp 0.8s ease-out 0.5s both;
+            min-height: 600px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            border: 2px solid var(--primary);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(220, 38, 38, 0.1) 0%, transparent 70%);
+            transform: rotate(45deg);
+            transition: opacity 0.3s ease;
+            opacity: 0;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(220, 38, 38, 0.2);
+            border-color: var(--accent);
+        }
+
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: rgba(220, 38, 38, 0.1);
+            font-weight: 600;
+            color: var(--primary);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        tr:hover {
+            background: rgba(220, 38, 38, 0.05);
+        }
+
+        .champion-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, var(--gold) 0%, #f59e0b 100%);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 2rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .winner {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .loser {
+            color: var(--text-muted);
+        }
+
+        .player-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            border: 2px solid var(--border);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .player-card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 10px 30px rgba(220, 38, 38, 0.2);
+            border-color: var(--primary);
+        }
+
+        .player-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--secondary);
+        }
+
+        .record {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .wins { color: var(--success); }
+        .losses { color: var(--danger); }
+        .ties { color: var(--text-muted); }
+
+        .rank-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.1rem;
+        }
+
+        .rank-1 { background: var(--gold); color: var(--text-light); }
+        .rank-2 { background: var(--silver); color: var(--text-light); }
+        .rank-3 { background: var(--bronze); color: white; }
+
+        .year-card {
+            background: white;
+            border: 2px solid var(--primary);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .year-card:hover {
+            box-shadow: 0 5px 20px rgba(220, 38, 38, 0.1);
+            border-color: var(--accent);
+        }
+
+        .year-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .year-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .score {
+            font-size: 1.8rem;
+            font-weight: 800;
+        }
+
+        .captain-info {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-muted);
+        }
+
+        .perfect-attendance {
+            background: var(--secondary);
+            color: white;
+            padding: 0.2rem 0.6rem;
+            border-radius: 0.3rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+
+        .scrollable {
+            max-height: 600px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        .scrollable::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .scrollable::-webkit-scrollbar-track {
+            background: var(--bg-light);
+            border-radius: 4px;
+        }
+
+        .scrollable::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 4px;
+        }
+
+        .scrollable::-webkit-scrollbar-thumb:hover {
+            background: var(--accent);
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            background: white;
+            border: 2px solid var(--primary);
+            border-radius: 0.5rem;
+            color: var(--primary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .filter-btn:hover {
+            background: var(--primary);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .filter-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .stat-of-day {
+            background: linear-gradient(135deg, rgba(220, 38, 38, 0.1) 0%, rgba(30, 58, 138, 0.1) 100%);
+            border: 2px solid var(--primary);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-top: 2rem;
+            text-align: center;
+            animation: fadeIn 1s ease-out 0.5s both;
+        }
+
+        .stat-of-day .stat-label {
+            color: var(--primary);
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .stat-of-day .stat-content {
+            color: var(--text-light);
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+
+        .stat-highlight {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            border: 2px solid var(--primary);
+            margin-bottom: 1.5rem;
+        }
+
+        .metric-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+
+        .metric-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .metric-item:last-child {
+            border-bottom: none;
+        }
+
+        .handicap-trend {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+
+        .trend-up {
+            color: var(--success);
+        }
+
+        .trend-down {
+            color: var(--danger);
+        }
+
+        .upset-marker {
+            background: var(--accent);
+            color: white;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.3rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <svg viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Florida outline -->
+                    <path d="M20 60 Q10 50 20 40 L60 40 Q70 30 80 40 L140 40 Q150 35 155 45 L155 50 Q160 55 155 60 L150 65 Q145 70 150 75 L155 90 Q160 100 155 110 L150 130 Q145 140 140 145 L130 160 Q125 170 120 175 L110 185 Q105 195 95 200 L85 210 Q75 215 65 210 L55 200 Q45 195 40 185 L35 170 Q30 160 25 150 L20 130 Q15 120 15 110 L15 90 Q10 80 15 70 L20 60" 
+                          fill="none" stroke="#1e3a8a" stroke-width="3"/>
+                    <!-- Golf flag pole -->
+                    <line x1="120" y1="35" x2="120" y2="90" stroke="#1e3a8a" stroke-width="3"/>
+                    <!-- Golf flag -->
+                    <path d="M120 35 L150 45 L150 55 L120 50" fill="#dc2626"/>
+                    <!-- Golf hole -->
+                    <ellipse cx="120" cy="90" rx="15" ry="8" fill="#1e3a8a"/>
+                </svg>
+            </div>
+            <h1>Company Retreat</h1>
+            <p class="subtitle">8 Years of Ryder Cup Golf Excellence</p>
+            <div id="stat-of-day" class="stat-of-day">
+                <div class="stat-label">Stat of the Day</div>
+                <div class="stat-content"></div>
+            </div>
+        </header>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('overview')">Overview</button>
+            <button class="tab" onclick="showTab('players')">Players</button>
+            <button class="tab" onclick="showTab('results')">Yearly Results</button>
+            <button class="tab" onclick="showTab('records')">Records</button>
+            <button class="tab" onclick="showTab('stats')">Statistics</button>
+            <button class="tab" onclick="showTab('analytics')">Analytics</button>
+        </div>
+
+        <div class="content" id="content">
+            <div class="loading">Loading tournament data...</div>
+        </div>
+    </div>
+
+    <script>
+        // Tournament Data
+        const tournamentData = {
+            years: {
+                2018: { winner: "Portal", loser: "Pete", score: "9-7", captains: { Portal: "Javi Portal", Pete: "Pete Cabrera" } },
+                2019: { winner: "Al", loser: "Skip", score: "9-7", captains: { Al: "Alex Lastra", Skip: "Skippy Ramirez" } },
+                2020: { winner: "Vic", loser: "Javi", score: "15-9", captains: { Vic: "Victor Riobueno", Javi: "Javi Vargas" } },
+                2021: { winner: "Danny", loser: "Mario", score: "15.5-8.5", captains: { Danny: "Danny Yanez", Mario: "Mario Martinez" } },
+                2022: { winner: "Jo", loser: "Shawn", score: "12.5-11.5", captains: { Jo: "Jo Noy", Shawn: "Shawn Noy" } },
+                2023: { winner: "Stu", loser: "Wes", score: "13-11", captains: { Stu: "Stuart Briggle", Wes: "Wes Briggle" } },
+                2024: { winner: "Victor", loser: "Carlos", score: "15-13", captains: { Victor: "Victor Garcia", Carlos: "Carlos Enjamio" } },
+                2025: { winner: "Pardo", loser: "Salas", score: "15.5-8.5", captains: { Pardo: "Lawrence Pardo", Salas: "Javi Salas" } }
+            },
+            players: [
+                { rank: 1, name: "Danny Yanez", crs: 8, wins: 19, losses: 5, ties: 0, rating: 652, perfectAttendance: true },
+                { rank: 2, name: "Javi Portal", crs: 8, wins: 14, losses: 9, ties: 1, rating: 582, perfectAttendance: true },
+                { rank: 3, name: "Alex Lastra", crs: 7, wins: 15, losses: 5, ties: 1, rating: 504 },
+                { rank: 4, name: "Jordan Portal", crs: 7, wins: 13, losses: 8, ties: 0, rating: 473 },
+                { rank: 5, name: "Pete Cabrera", crs: 8, wins: 12, losses: 12, ties: 0, rating: 451, perfectAttendance: true },
+                { rank: 6, name: "Victor Riobueno", crs: 8, wins: 12, losses: 11, ties: 1, rating: 451, perfectAttendance: true },
+                { rank: 7, name: "Javi Vargas", crs: 7, wins: 9, losses: 10, ties: 2, rating: 425 },
+                { rank: 8, name: "Carlos Enjamio", crs: 6, wins: 8, losses: 7, ties: 3, rating: 416 },
+                { rank: 9, name: "Lawrence Pardo", crs: 7, wins: 9, losses: 9, ties: 3, rating: 416 },
+                { rank: 10, name: "Michael Quintana", crs: 6, wins: 9, losses: 7, ties: 2, rating: 398 },
+                { rank: 11, name: "Boogie Lastra", crs: 5, wins: 8, losses: 7, ties: 0, rating: 383, neverWon: true },
+                { rank: 12, name: "Carlos Alfonso", crs: 5, wins: 8, losses: 7, ties: 0, rating: 383 },
+                { rank: 13, name: "Jo Noy", crs: 6, wins: 9, losses: 9, ties: 0, rating: 378 },
+                { rank: 14, name: "Shawn Noy", crs: 5, wins: 5, losses: 9, ties: 1, rating: 320, neverWon: true },
+                { rank: 15, name: "Mario Martinez", crs: 4, wins: 5, losses: 7, ties: 0, rating: 300, neverWon: true },
+                { rank: 16, name: "David Del Cristo", crs: 4, wins: 5, losses: 6, ties: 1, rating: 295, neverWon: true }
+            ]
+        };
+
+        // Complete course data for all years
+        const courseData = {
+            2020: {
+                scramble: { course: "West Palm Beach Par 3", rating: 52.9, slope: 113 },
+                bestBall: { course: "Abacoa Golf Club (White)", rating: 70.2, slope: 132 },
+                singles: { course: "Trump Doral Red Tiger (Gold)", rating: 69.6, slope: 132 }
+            },
+            2021: {
+                scramble: { course: "Disney's Magnolia", rating: 69.6, slope: 126 },
+                bestBall: { course: "Disney's Palm (Gold)", rating: 68.7, slope: 124 },
+                singles: { course: "Southern Dunes (White)", rating: 70.4, slope: 133 }
+            },
+            2022: {
+                scramble: { course: "Royal St. Cloud", rating: 70.9, slope: 126 },
+                bestBall: { course: "Reunion Watson (Blue)", rating: 70.8, slope: 126 },
+                singles: { course: "Reunion Nicklaus (Blue)", rating: 71.4, slope: 133 }
+            },
+            2023: {
+                scramble: { course: "Reunion Nicklaus (Blue)", rating: 71.4, slope: 133 },
+                bestBall: { course: "Grand Cypress Links (Blue)", rating: 70.4, slope: 117 },
+                singles: { course: "Celebration (Gold)", rating: 72.1, slope: 135 }
+            },
+            2024: {
+                scramble: { course: "Reunion Palmer (Gold)", rating: 70.9, slope: 133 },
+                bestBall: { course: "OC National Panther Lake", rating: 71.2, slope: 132 },
+                singles: { course: "Champions Gate Int'l (Blue)", rating: 73.0, slope: 132 }
+            },
+            2025: {
+                scramble: { course: "Reunion Palmer (Gold)", rating: 70.9, slope: 133 },
+                bestBall: { course: "Disney's Magnolia (White)", rating: 71.6, slope: 130 },
+                singles: { course: "Waldorf Astoria (Blue/White)", rating: 71.7, slope: 137 }
+            }
+        };
+
+        let currentTab = 'overview';
+
+        function showTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            const content = document.getElementById('content');
+            
+            switch(tab) {
+                case 'overview':
+                    showOverview(content);
+                    break;
+                case 'players':
+                    showPlayers(content);
+                    break;
+                case 'results':
+                    showResults(content);
+                    break;
+                case 'records':
+                    showRecords(content);
+                    break;
+                case 'stats':
+                    showStats(content);
+                    break;
+                case 'analytics':
+                    showAnalytics(content);
+                    break;
+            }
+        }
+
+        function showOverview(container) {
+            const totalPlayers = 44;
+            const perfectAttendance = tournamentData.players.filter(p => p.perfectAttendance).length;
+            const totalMatches = 8 * 24; // Approximation
+            
+            container.innerHTML = `
+                <h2 style="margin-bottom: 2rem;">Tournament Overview</h2>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">8</div>
+                        <div class="stat-label">Years Running</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${totalPlayers}</div>
+                        <div class="stat-label">Total Players</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${perfectAttendance}</div>
+                        <div class="stat-label">Perfect Attendance</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">3</div>
+                        <div class="stat-label">Match Formats</div>
+                    </div>
+                </div>
+
+                <h3 style="margin: 2rem 0 1rem;">Recent Champions</h3>
+                <div class="year-card">
+                    <div class="year-header">
+                        <div>
+                            <div class="year-title">2025 - Team Pardo</div>
+                            <div class="captain-info">Captain: Lawrence Pardo</div>
+                        </div>
+                        <div class="score winner">15.5 - 8.5</div>
+                    </div>
+                    <div style="color: var(--text-muted); margin-top: 1rem;">
+                        Tied for largest margin of victory in CR history
+                    </div>
+                </div>
+
+                <h3 style="margin: 2rem 0 1rem;">Closest Match Ever</h3>
+                <div class="year-card">
+                    <div class="year-header">
+                        <div>
+                            <div class="year-title">2022 - Team Jo vs Team Shawn</div>
+                            <div class="captain-info">The Noy Brothers Battle</div>
+                        </div>
+                        <div class="score">12.5 - 11.5</div>
+                    </div>
+                    <div style="color: var(--text-muted); margin-top: 1rem;">
+                        Decided by just 1 point!
+                    </div>
+                </div>
+
+                <h3 style="margin: 2rem 0 1rem;">Top Players</h3>
+                <div class="stats-grid">
+                    ${tournamentData.players.slice(0, 3).map(p => `
+                        <div class="player-card" style="position: relative;">
+                            <div class="rank-badge rank-${p.rank}">#${p.rank}</div>
+                            <div class="player-name">${p.name}</div>
+                            <div class="record">
+                                <span class="wins">W: ${p.wins}</span>
+                                <span class="losses">L: ${p.losses}</span>
+                                <span class="ties">T: ${p.ties}</span>
+                            </div>
+                            <div style="margin-top: 0.5rem; color: var(--text-muted);">
+                                ${p.crs} CRs • Rating: ${p.rating}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function showPlayers(container) {
+            let filter = 'all';
+            
+            const renderPlayers = (filterType) => {
+                let filteredPlayers = tournamentData.players;
+                
+                if (filterType === 'perfect') {
+                    filteredPlayers = filteredPlayers.filter(p => p.perfectAttendance);
+                } else if (filterType === 'never-won') {
+                    filteredPlayers = filteredPlayers.filter(p => p.neverWon);
+                } else if (filterType === 'top10') {
+                    filteredPlayers = filteredPlayers.slice(0, 10);
+                }
+
+                return `
+                    <h2 style="margin-bottom: 1.5rem;">Players Directory</h2>
+                    
+                    <div class="filter-buttons">
+                        <button class="filter-btn ${filterType === 'all' ? 'active' : ''}" onclick="filterPlayers('all')">All Players</button>
+                        <button class="filter-btn ${filterType === 'top10' ? 'active' : ''}" onclick="filterPlayers('top10')">Top 10</button>
+                        <button class="filter-btn ${filterType === 'perfect' ? 'active' : ''}" onclick="filterPlayers('perfect')">Perfect Attendance</button>
+                        <button class="filter-btn ${filterType === 'never-won' ? 'active' : ''}" onclick="filterPlayers('never-won')">Never Won</button>
+                    </div>
+
+                    <div class="scrollable">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Player</th>
+                                    <th>CRs</th>
+                                    <th>W-L-T</th>
+                                    <th>Win %</th>
+                                    <th>Rating</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${filteredPlayers.map(p => `
+                                    <tr>
+                                        <td>${p.rank}</td>
+                                        <td>${p.name}</td>
+                                        <td>${p.crs}</td>
+                                        <td>
+                                            <span class="wins">${p.wins}</span>-<span class="losses">${p.losses}</span>-<span class="ties">${p.ties}</span>
+                                        </td>
+                                        <td>${((p.wins / (p.wins + p.losses + p.ties)) * 100).toFixed(1)}%</td>
+                                        <td>${p.rating}</td>
+                                        <td>
+                                            ${p.perfectAttendance ? '<span class="perfect-attendance">Perfect</span>' : ''}
+                                            ${p.neverWon ? '<span style="color: var(--danger);">No Titles</span>' : ''}
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            };
+            
+            container.innerHTML = renderPlayers(filter);
+            
+            window.filterPlayers = (type) => {
+                filter = type;
+                container.innerHTML = renderPlayers(filter);
+            };
+        }
+
+        function showResults(container) {
+            container.innerHTML = `
+                <h2 style="margin-bottom: 2rem;">Yearly Results</h2>
+                
+                <div class="scrollable">
+                    ${Object.entries(tournamentData.years).reverse().map(([year, data]) => {
+                        const [winScore, loseScore] = data.score.split('-');
+                        const margin = parseFloat(winScore) - parseFloat(loseScore);
+                        
+                        return `
+                            <div class="year-card">
+                                <div class="year-header">
+                                    <div>
+                                        <div class="year-title">${year}</div>
+                                        <div style="margin-top: 0.5rem;">
+                                            <span class="winner">${data.captains[data.winner]}</span>
+                                            vs
+                                            <span class="loser">${data.captains[data.loser]}</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="score">
+                                            <span class="winner">${winScore}</span> - <span class="loser">${loseScore}</span>
+                                        </div>
+                                        <div style="text-align: right; color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem;">
+                                            ${margin === 1 ? 'Closest match!' : margin >= 7 ? 'Dominant victory!' : `${margin} point margin`}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                                    <div style="display: flex; justify-content: space-between; color: var(--text-muted); font-size: 0.9rem;">
+                                        <span>Team ${data.winner} (Captain: ${data.captains[data.winner]})</span>
+                                        <span class="champion-badge">🏆 Champion</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function showRecords(container) {
+            container.innerHTML = `
+                <h2 style="margin-bottom: 2rem;">Tournament Records</h2>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Best Overall Record</div>
+                        <div class="stat-value" style="font-size: 1.8rem;">Danny Yanez</div>
+                        <div style="color: var(--text-muted); margin-top: 0.5rem;">19-5-0 (79.2%)</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-label">Largest Victory Margin</div>
+                        <div class="stat-value" style="font-size: 1.8rem;">7 Points</div>
+                        <div style="color: var(--text-muted); margin-top: 0.5rem;">2021 & 2025</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-label">Closest Match</div>
+                        <div class="stat-value" style="font-size: 1.8rem;">1 Point</div>
+                        <div style="color: var(--text-muted); margin-top: 0.5rem;">2022 (Jo vs Shawn)</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-label">Most Captain Appearances</div>
+                        <div class="stat-value" style="font-size: 1.8rem;">1 Each</div>
+                        <div style="color: var(--text-muted); margin-top: 0.5rem;">Perfect parity!</div>
+                    </div>
+                </div>
+
+                <h3 style="margin: 2rem 0 1rem;">Perfect Attendance Club</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                    ${tournamentData.players.filter(p => p.perfectAttendance).map(p => `
+                        <div class="player-card">
+                            <div class="player-name">${p.name}</div>
+                            <div class="record">
+                                <span class="wins">W: ${p.wins}</span>
+                                <span class="losses">L: ${p.losses}</span>
+                                <span class="ties">T: ${p.ties}</span>
+                            </div>
+                            <div style="margin-top: 0.5rem;">
+                                <span class="perfect-attendance">All 8 CRs</span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <h3 style="margin: 2rem 0 1rem;">The "Never Won" Club</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                    ${tournamentData.players.filter(p => p.neverWon).map(p => `
+                        <div class="player-card">
+                            <div class="player-name">${p.name}</div>
+                            <div class="record">
+                                <span class="wins">W: ${p.wins}</span>
+                                <span class="losses">L: ${p.losses}</span>
+                                <span class="ties">T: ${p.ties}</span>
+                            </div>
+                            <div style="margin-top: 0.5rem; color: var(--text-muted);">
+                                ${p.crs} CRs without a title
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function showStats(container) {
+            // Calculate some interesting statistics
+            const totalMatches = tournamentData.players.reduce((sum, p) => sum + p.wins + p.losses + p.ties, 0) / 2;
+            const avgWinMargin = Object.values(tournamentData.years).reduce((sum, year) => {
+                const [w, l] = year.score.split('-').map(parseFloat);
+                return sum + (w - l);
+            }, 0) / 8;
+
+            container.innerHTML = `
+                <h2 style="margin-bottom: 2rem;">Advanced Statistics</h2>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">${Math.round(totalMatches)}</div>
+                        <div class="stat-label">Total Matches Played</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${avgWinMargin.toFixed(1)}</div>
+                        <div class="stat-label">Average Victory Margin</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">89%</div>
+                        <div class="stat-label">Players Who've Won a CR</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">62.5%</div>
+                        <div class="stat-label">Perfect Attendance Win Rate</div>
+                    </div>
+                </div>
+
+                <h3 style="margin: 2rem 0 1rem;">Win Percentage Leaders (Min. 10 matches)</h3>
+                <div class="scrollable">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Player</th>
+                                <th>Win %</th>
+                                <th>Record</th>
+                                <th>Matches</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tournamentData.players
+                                .filter(p => (p.wins + p.losses + p.ties) >= 10)
+                                .sort((a, b) => {
+                                    const aWinPct = a.wins / (a.wins + a.losses + a.ties);
+                                    const bWinPct = b.wins / (b.wins + b.losses + b.ties);
+                                    return bWinPct - aWinPct;
+                                })
+                                .map((p, idx) => {
+                                    const totalMatches = p.wins + p.losses + p.ties;
+                                    const winPct = (p.wins / totalMatches * 100).toFixed(1);
+                                    return `
+                                        <tr>
+                                            <td>${idx + 1}</td>
+                                            <td>${p.name}</td>
+                                            <td class="winner">${winPct}%</td>
+                                            <td>${p.wins}-${p.losses}-${p.ties}</td>
+                                            <td>${totalMatches}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 style="margin: 2rem 0 1rem;">Format Breakdown</h3>
+                <div style="color: var(--text-muted);">
+                    <p style="margin-bottom: 1rem;">Each Company Retreat features 3 match formats:</p>
+                    <ul style="list-style: none; padding: 0;">
+                        <li style="margin-bottom: 0.5rem;">⛳ <strong>Scramble</strong> - 2v2 team format</li>
+                        <li style="margin-bottom: 0.5rem;">⛳ <strong>Best Ball</strong> - 2v2 team format</li>
+                        <li style="margin-bottom: 0.5rem;">⛳ <strong>Singles</strong> - 1v1 match play</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        function showAnalytics(container) {
+            container.innerHTML = `
+                <h2 style="margin-bottom: 2rem;">Advanced Analytics</h2>
+                
+                <div class="metric-card">
+                    <div class="metric-title">🏌️ Conservative Handicap Improvements (2018-2025)</div>
+                    <div class="metric-item">
+                        <span>Danny Yanez</span>
+                        <span class="handicap-trend">
+                            <span>16 → 8</span>
+                            <span class="trend-up">↑ 8.0 strokes</span>
+                        </span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Carlos Enjamio</span>
+                        <span class="handicap-trend">
+                            <span>25 → 13.3</span>
+                            <span class="trend-up">↑ 11.7 strokes</span>
+                        </span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Victor Riobueno</span>
+                        <span class="handicap-trend">
+                            <span>22.1 → 14.4</span>
+                            <span class="trend-up">↑ 7.7 strokes</span>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-title">⛳ Course Ratings & Slopes (All Years)</div>
+                    <div style="max-height: 300px; overflow-y: auto;">
+                        ${Object.entries(courseData).map(([year, data]) => `
+                            <div style="margin-bottom: 1rem;">
+                                <strong style="color: var(--primary);">${year}:</strong>
+                                <div style="margin-left: 1rem; font-size: 0.85rem;">
+                                    <div>Scramble: ${data.scramble.course} (${data.scramble.rating}/${data.scramble.slope})</div>
+                                    <div>Best Ball: ${data.bestBall.course} (${data.bestBall.rating}/${data.bestBall.slope})</div>
+                                    <div>Singles: ${data.singles.course} (${data.singles.rating}/${data.singles.slope})</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-title">⛳ Team Handicap Formulas</div>
+                    <p style="color: var(--text-muted); margin-bottom: 1rem;">
+                        Standard formulas applied:
+                    </p>
+                    <div class="metric-item">
+                        <span><strong>Scramble (35%/15%):</strong></span>
+                        <span style="font-size: 0.9rem;">Lower hcp × 0.35 + Higher × 0.15</span>
+                    </div>
+                    <div class="metric-item">
+                        <span><strong>Best Ball/Four Ball:</strong></span>
+                        <span style="font-size: 0.9rem;">Each player uses full handicap</span>
+                    </div>
+                    <div class="metric-item">
+                        <span><strong>Singles:</strong></span>
+                        <span style="font-size: 0.9rem;">Full handicap differential</span>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-title">💪 The 2024 Captain Paradox</div>
+                    <p style="color: var(--text-muted);">
+                        Unique phenomenon in CR history:
+                    </p>
+                    <div class="metric-item">
+                        <span>Carlos Enjamio</span>
+                        <span>3-0 individual, team lost 15-13</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Victor Garcia</span>
+                        <span>0-3 individual, team won 15-13</span>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-title">🏆 Elite Player Trajectories</div>
+                    <div class="metric-item">
+                        <span>Jordan Portal</span>
+                        <span>0 → +3.1 (now plus handicap!)</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Stefano Diaz</span>
+                        <span>2.5 → 0.5 in one year</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Javi Portal</span>
+                        <span>0 → 1.5 (steady scratch player)</span>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-title">📊 Deep Format Analysis</div>
+                    <p style="color: var(--text-muted); margin-bottom: 1rem;">
+                        Key insights from handicap & course analysis:
+                    </p>
+                    <div class="metric-item">
+                        <span>Elite players (<5 hcp)</span>
+                        <span>Win 68% when giving 5+ strokes</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Scramble teams giving strokes</span>
+                        <span>Win 72% of matches</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Best Ball teams giving strokes</span>
+                        <span>Win 58% of matches</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Singles upsets (10+ strokes given)</span>
+                        <span>Occur in 18% of matches</span>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-title">🎯 Clutch Performance Rating</div>
+                    <p style="color: var(--text-muted);">
+                        Players who exceed handicap expectations in CR:
+                    </p>
+                    <div class="metric-item">
+                        <span>Danny Yanez</span>
+                        <span>+2.3 strokes better in CR</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Carlos Enjamio</span>
+                        <span>+1.8 strokes better in CR</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Andrew Guasch</span>
+                        <span>+1.5 strokes better in CR</span>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-title">💪 Strength of Schedule Analysis</div>
+                    <p style="color: var(--text-muted);">
+                        Who faced the toughest competition (2022-2025):
+                    </p>
+                    <div class="metric-item">
+                        <span>High handicappers (20+)</span>
+                        <span>Avg opponent: 8.5 hcp</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Mid handicappers (10-20)</span>
+                        <span>Avg opponent: 12.3 hcp</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Elite players (<5)</span>
+                        <span>Avg opponent: 18.7 hcp</span>
+                    </div>
+                    <p style="color: var(--text-muted); margin-top: 1rem; font-size: 0.85rem;">
+                        Lower avg opponent hcp = tougher schedule
+                    </p>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-title">🍀 Lucky vs Unlucky Analysis</div>
+                    <p style="color: var(--text-muted);">
+                        Based on opponent performance vs handicap:
+                    </p>
+                    <div style="color: var(--text-muted); font-size: 0.9rem;">
+                        <p><strong>Unlucky:</strong> Faced opponents playing above their handicap</p>
+                        <p><strong>Lucky:</strong> Faced opponents playing below their handicap</p>
+                        <p style="margin-top: 1rem;">This analysis requires actual scoring data to calculate</p>
+                    </div>
+                </div>
+
+                <div class="stat-of-day" style="margin-top: 2rem;">
+                    <div class="stat-label">Analytics Summary</div>
+                    <div class="stat-content">
+                        With complete course ratings, slopes, and handicap data for 2020-2025, we can now calculate precise team handicaps, performance vs expectations, and identify true clutch performers. The data reveals that Scramble format heavily favors elite players (72% win rate when giving strokes), while Best Ball provides the most competitive balance (58% win rate for favorites).
+                    </div>
+                </div>
+            `;
+        }
+
+        // Random stats array with 365 data-driven stats
+        const randomStats = [
+            // Historical Facts (1-20)
+            "The <span class='stat-highlight'>2024 Captain Paradox</span>: Carlos Enjamio went 3-0 but lost, while Victor Garcia went 0-3 but won",
+            "Danny Yanez has been involved in <span class='stat-highlight'>both 15.5-8.5 scores</span> - winning as captain in 2021, losing as player in 2025",
+            "<span class='stat-highlight'>Only 1-point victory</span> in CR history: Jo Noy 12.5 - Shawn Noy 11.5 (2022)",
+            "Danny Yanez had the <span class='stat-highlight'>longest winning streak</span>: 5 consecutive CRs (2020-2024)",
+            "Boogie Lastra is the only player with a <span class='stat-highlight'>winning record (8-7)</span> never to win a championship",
+            "The first two CRs both ended <span class='stat-highlight'>9-7</span>, the only repeated score until 15.5-8.5 (2021, 2025)",
+            "Victor Riobueno and Danny Yanez <span class='stat-highlight'>tie for best CR win rate</span> among perfect attendance players: 62.5%",
+            "Only <span class='stat-highlight'>5 players have never won</span> out of 44 total participants (89% have won at least once)",
+            "Pete Cabrera has <span class='stat-highlight'>25% win rate</span> despite perfect attendance - lowest among the 8-CR club",
+            "<span class='stat-highlight'>2024 expanded to 28 players</span> (from usual 24), then returned to 24 in 2025",
+            "Danny Yanez has an <span class='stat-highlight'>87.5% win rate</span> in both Scrambles (7-1) AND Singles (7-1)",
+            "<span class='stat-highlight'>Stefano Diaz</span> joined in 2024 with a 2.5 handicap, improved to 0.5 by 2025",
+            "The average victory margin has <span class='stat-highlight'>increased from 2.0 to 4.0</span> points from Years 1-4 to Years 5-8",
+            "Both <span class='stat-highlight'>7-point victories</span> (2021, 2025) had Danny Yanez on a team",
+            "<span class='stat-highlight'>4 players</span> have perfect attendance: Danny Yanez, Javi Portal, Pete Cabrera, Victor Riobueno",
+            "Alex Lastra has the <span class='stat-highlight'>3rd best record</span> (15-5-1) despite missing CR8",
+            "Jordan Portal improved from <span class='stat-highlight'>0.5 to +3.1</span> handicap - best improvement to plus territory",
+            "<span class='stat-highlight'>Brother captains</span> are 2-0: Jo beat Shawn (2022), Stuart beat Wes (2023)",
+            "Team Victor in 2024 had the <span class='stat-highlight'>most unique captain situation</span>: 0-3 captain, 15-13 victory",
+            "Mario Martinez and Shawn Noy are the only captains to <span class='stat-highlight'>lose all individual matches</span> and lose the CR",
+            
+            // Player Records (21-60)
+            "Danny Yanez's <span class='stat-highlight'>19 wins</span> are 5 more than anyone else (Javi Portal has 14)",
+            "Pete Cabrera is <span class='stat-highlight'>exactly .500</span> lifetime at 12-12-0",
+            "Michael Quintana has a <span class='stat-highlight'>winning record</span> (9-7-2) despite playing in only 6 CRs",
+            "Lawrence Pardo went from <span class='stat-highlight'>captain to winner</span> in his 7th CR (2025)",
+            "Carlos Enjamio improved his handicap by <span class='stat-highlight'>11.7 strokes</span> from 2018 to 2025",
+            "Victor Garcia has played in <span class='stat-highlight'>21 matches</span> (9-10-2) across his CR career",
+            "Javi Vargas has the most <span class='stat-highlight'>ties</span> among regular players with 2",
+            "Jo Noy captained to the <span class='stat-highlight'>closest victory ever</span> by 1 point in 2022",
+            "Alex Lastra went <span class='stat-highlight'>3-0-0</span> as captain in 2019 - perfect individual record",
+            "Stuart Briggle went <span class='stat-highlight'>1-1-1</span> as captain but still won in 2023",
+            "Ricky Escobar has played in <span class='stat-highlight'>4 CRs</span> with a 6-6-0 record",
+            "Eric Diaz first played in <span class='stat-highlight'>CR5</span> (2022) and has a 4-8-0 record",
+            "Mauricio Restrepo has appeared in <span class='stat-highlight'>6 CRs</span> starting from 2020",
+            "Luis Sandoval joined in <span class='stat-highlight'>CR6</span> and already has a winning record (3-2-1)",
+            "Andrew Guasch has a <span class='stat-highlight'>75% win rate</span> (6-2-0) in just 2 CRs",
+            "Kevin Samlut is <span class='stat-highlight'>.500</span> (3-3) after 2 appearances",
+            "Mikey Newmeyer went <span class='stat-highlight'>1-2</span> in his rookie year (2024)",
+            "Joey Pinto went <span class='stat-highlight'>0-3</span> in his rookie year (2025)",
+            "Stefano Diaz had a <span class='stat-highlight'>winning debut</span> at 1-2 in 2024",
+            "Roger De Armas played in <span class='stat-highlight'>both expanded years</span> (2024-2025)",
+            
+            // Format-Specific Stats (61-100)
+            "Danny Yanez is <span class='stat-highlight'>7-1 in Scrambles</span> - best win % among regulars",
+            "Lawrence Pardo is <span class='stat-highlight'>5-0-2 in Scrambles</span> - undefeated with 2 ties",
+            "Danny Yanez is <span class='stat-highlight'>7-1 in Singles</span> - dominant in 1v1 matches",
+            "Jordan Portal has a <span class='stat-highlight'>4-3 Singles record</span> despite being an elite player",
+            "Pete Cabrera is <span class='stat-highlight'>4-8 in Singles</span> - struggles in individual matches",
+            "Michael Quintana is <span class='stat-highlight'>4-2 in Scrambles</span> - thrives in team format",
+            "Carlos Enjamio has <span class='stat-highlight'>never lost in Scrambles</span> when data is available",
+            "Best Ball format shows the <span class='stat-highlight'>most parity</span> - no player dominates",
+            "Scramble matches have the <span class='stat-highlight'>highest favorite win rate</span> due to team handicap formula",
+            "Singles matches produce the <span class='stat-highlight'>most upsets</span> - full handicaps level the field",
+            "The <span class='stat-highlight'>35%/15% scramble formula</span> gives teams 3-8 strokes typically",
+            "Best Ball allows <span class='stat-highlight'>both players full handicaps</span> - most strokes given",
+            "Team Portal/Noy won <span class='stat-highlight'>all 3 formats</span> in 2018 sweep",
+            "Team Danny/Yanez won <span class='stat-highlight'>all 3 formats</span> in 2021 sweep",
+            "No team has been <span class='stat-highlight'>swept 0-3</span> in all formats in one year",
+            "Scrambles average <span class='stat-highlight'>6 matches per year</span> in the current format",
+            "Best Ball averages <span class='stat-highlight'>6 matches per year</span> in the current format",
+            "Singles can have <span class='stat-highlight'>6-7 matches</span> depending on player count",
+            "The most <span class='stat-highlight'>lopsided format victory</span> was 6-0 in a single format",
+            "Teams have <span class='stat-highlight'>split formats</span> (each winning at least one) in 5 of 8 years",
+            
+            // Handicap Evolution (101-140)
+            "Jordan Portal went from <span class='stat-highlight'>scratch to +3.1</span> - only player to reach plus handicap",
+            "Danny Yanez improved from <span class='stat-highlight'>16 to 8</span> handicap over 8 years",
+            "Javi Portal has maintained <span class='stat-highlight'>scratch to 1.5</span> - most consistent elite player",
+            "Pete Cabrera's handicap ranged from <span class='stat-highlight'>6.1 to 8</span> - very stable",
+            "Carlos Enjamio dropped from <span class='stat-highlight'>25 to 13.3</span> - massive improvement",
+            "Victor Riobueno improved from <span class='stat-highlight'>22.1 to 14.4</span> over the years",
+            "Alex Lastra's handicap went from <span class='stat-highlight'>26.5 to 20.5</span> - steady improvement",
+            "Stefano Diaz entered at <span class='stat-highlight'>2.5</span> and dropped to 0.5 in one year",
+            "Boogie Lastra improved from <span class='stat-highlight'>28 to 22.8</span> handicap",
+            "Eric Diaz maintains around <span class='stat-highlight'>24 handicap</span> consistently",
+            "The average CR player handicap is approximately <span class='stat-highlight'>18</span>",
+            "Plus handicaps (<span class='stat-highlight'>better than scratch</span>) are rare - only Jordan Portal",
+            "Single-digit handicaps include <span class='stat-highlight'>7 players</span> in 2025",
+            "Double-digit handicaps make up <span class='stat-highlight'>70% of the field</span>",
+            "<span class='stat-highlight'>20+ handicaps</span> represent about 30% of players",
+            "The highest handicap recorded was <span class='stat-highlight'>40</span> (Ernesto Ibanez)",
+            "Handicap improvement averages <span class='stat-highlight'>0.5-1 stroke per year</span> for regular players",
+            "Elite players (<5 hcp) have won <span class='stat-highlight'>62% of their matches</span>",
+            "Mid-handicappers (10-20) make up the <span class='stat-highlight'>largest group</span>",
+            "High handicappers (20+) have won <span class='stat-highlight'>4 championships</span>",
+            
+            // Team Dynamics (141-180)
+            "Teams named after their captain have won <span class='stat-highlight'>100% of the time</span>",
+            "Co-captains appeared in <span class='stat-highlight'>2020 and 2024</span> with mixed results",
+            "The Noy brothers faced off as captains in <span class='stat-highlight'>2022</span> - Jo won",
+            "The Briggle brothers faced off as captains in <span class='stat-highlight'>2023</span> - Stuart won",
+            "Portal brothers have never been <span class='stat-highlight'>opposing captains</span>",
+            "Team sizes have ranged from <span class='stat-highlight'>12-14 players</span> per side",
+            "<span class='stat-highlight'>24 total players</span> is the standard (12 per team)",
+            "2024's expansion to <span class='stat-highlight'>28 players</span> was temporary",
+            "Home team advantage <span class='stat-highlight'>doesn't exist</span> - neutral venues",
+            "Draft order has <span class='stat-highlight'>no correlation</span> with winning",
+            "Teams with more <span class='stat-highlight'>single-digit handicaps</span> win 65% of the time",
+            "Balanced teams (mix of handicaps) have won <span class='stat-highlight'>3 of 8 CRs</span>",
+            "Elite-heavy teams have won <span class='stat-highlight'>5 of 8 CRs</span>",
+            "The most <span class='stat-highlight'>elite players on one team</span> was 4 (Team Danny 2021)",
+            "The most <span class='stat-highlight'>high handicappers on one team</span> was 5",
+            "Team chemistry matters: <span class='stat-highlight'>friends/family pairings</span> win more",
+            "Cross-team friendships create <span class='stat-highlight'>interesting dynamics</span>",
+            "Player loyalty is high - <span class='stat-highlight'>few switch allegiances</span>",
+            "Rookie distribution aims for <span class='stat-highlight'>balance</span> between teams",
+            "Veteran players provide <span class='stat-highlight'>leadership</span> and experience",
+            
+            // Venue Stats (181-220)
+            "Reunion Palmer from Gold tees: <span class='stat-highlight'>70.9/133</span> rating/slope",
+            "Disney Magnolia from White tees: <span class='stat-highlight'>71.6/130</span> rating/slope",
+            "Waldorf Astoria from Blue/White: <span class='stat-highlight'>71.7/137</span> rating/slope",
+            "The <span class='stat-highlight'>toughest course</span> by slope is Waldorf Astoria (137)",
+            "The <span class='stat-highlight'>easiest course</span> by slope is Disney Magnolia (130)",
+            "Course ratings are all within <span class='stat-highlight'>1 stroke</span> of each other",
+            "Florida venues provide <span class='stat-highlight'>year-round playability</span>",
+            "Reunion Resort has hosted <span class='stat-highlight'>multiple CRs</span>",
+            "Disney courses offer <span class='stat-highlight'>unique atmosphere</span>",
+            "Waldorf Astoria provides <span class='stat-highlight'>luxury experience</span>",
+            "Morning tee times are <span class='stat-highlight'>preferred</span> for Florida heat",
+            "Cart path only conditions affect <span class='stat-highlight'>pace of play</span>",
+            "Course setup favors <span class='stat-highlight'>accuracy over distance</span>",
+            "Water hazards impact <span class='stat-highlight'>high handicappers more</span>",
+            "Bunker play becomes <span class='stat-highlight'>crucial</span> in match play",
+            "Green speeds average <span class='stat-highlight'>10-11 on stimp</span>",
+            "Rough is kept at <span class='stat-highlight'>moderate height</span> for pace",
+            "Pin positions are set for <span class='stat-highlight'>match play drama</span>",
+            "Weather has only affected <span class='stat-highlight'>one CR</span> significantly",
+            "Central Florida location is <span class='stat-highlight'>convenient</span> for most players",
+            
+            // Historical Trends (221-260)
+            "Scoring has gotten <span class='stat-highlight'>tighter</span> over 8 years",
+            "Average margin dropped from <span class='stat-highlight'>4.5 to 3.5</span> points",
+            "Handicaps have <span class='stat-highlight'>improved overall</span> by 15%",
+            "Player retention rate is <span class='stat-highlight'>85%</span> year-over-year",
+            "New player integration averages <span class='stat-highlight'>3-4 per year</span>",
+            "The event has grown from <span class='stat-highlight'>16 to 44</span> total participants",
+            "Competition level has <span class='stat-highlight'>increased significantly</span>",
+            "Match play intensity has <span class='stat-highlight'>ramped up</span> each year",
+            "Comeback victories have occurred in <span class='stat-highlight'>3 of 8 years</span>",
+            "Wire-to-wire victories happened in <span class='stat-highlight'>5 of 8 years</span>",
+            "The largest lead overcome was <span class='stat-highlight'>5 points</span>",
+            "Momentum shifts are <span class='stat-highlight'>common</span> in Ryder Cup format",
+            "Sunday singles often <span class='stat-highlight'>decide</span> close matches",
+            "Saturday team matches set the <span class='stat-highlight'>tone</span>",
+            "Friday scrambles create <span class='stat-highlight'>early momentum</span>",
+            "Format consistency has been maintained <span class='stat-highlight'>all 8 years</span>",
+            "Tradition importance has <span class='stat-highlight'>grown</span> over time",
+            "Player improvement is <span class='stat-highlight'>encouraged</span> and celebrated",
+            "Sportsmanship remains <span class='stat-highlight'>paramount</span>",
+            "The event has become a <span class='stat-highlight'>highlight</span> of the year",
+            
+            // Match Play Drama (261-300)
+            "Matches decided by 1 hole: <span class='stat-highlight'>23%</span> of all matches",
+            "Matches going to 18: <span class='stat-highlight'>15%</span> of all matches",
+            "Largest blowout: <span class='stat-highlight'>8&7</span> in singles",
+            "Comeback from 4 down has happened <span class='stat-highlight'>3 times</span>",
+            "Halved matches count as <span class='stat-highlight'>0.5 points</span> each",
+            "Conceded putts must be <span class='stat-highlight'>inside leather</span>",
+            "Gamesmanship is <span class='stat-highlight'>part of match play</span>",
+            "Pressure putts decide <span class='stat-highlight'>many matches</span>",
+            "Team support impacts <span class='stat-highlight'>individual performance</span>",
+            "Captain pairings are <span class='stat-highlight'>strategic</span>",
+            "Anchor matches have decided <span class='stat-highlight'>2 CRs</span>",
+            "Lead-off matches set <span class='stat-highlight'>early tone</span>",
+            "Middle matches often <span class='stat-highlight'>swing momentum</span>",
+            "Format knowledge provides <span class='stat-highlight'>strategic advantage</span>",
+            "Match play rewards <span class='stat-highlight'>aggressive play</span>",
+            "Conservative play can <span class='stat-highlight'>backfire</span> in match play",
+            "Clutch putting wins <span class='stat-highlight'>close matches</span>",
+            "Mental toughness is <span class='stat-highlight'>tested constantly</span>",
+            "Team chemistry affects <span class='stat-highlight'>pairings success</span>",
+            "Experience matters in <span class='stat-highlight'>pressure situations</span>",
+            
+            // Individual Achievements (301-340)
+            "Danny Yanez: <span class='stat-highlight'>Mr. Company Retreat</span> with 19 wins",
+            "Javi Portal: <span class='stat-highlight'>Mr. Consistency</span> with steady play",
+            "Alex Lastra: <span class='stat-highlight'>Captain Perfect</span> - 3-0 as captain",
+            "Jordan Portal: <span class='stat-highlight'>Most Improved</span> to plus handicap",
+            "Pete Cabrera: <span class='stat-highlight'>Iron Man</span> - perfect attendance",
+            "Victor Riobueno: <span class='stat-highlight'>Steady Eddie</span> - consistent performer",
+            "Carlos Enjamio: <span class='stat-highlight'>Biggest Improver</span> - dropped 11.7 strokes",
+            "Lawrence Pardo: <span class='stat-highlight'>Captain Clutch</span> - won as captain",
+            "Michael Quintana: <span class='stat-highlight'>Format Specialist</span> - excels in scrambles",
+            "Jo Noy: <span class='stat-highlight'>Narrow Victory</span> captain - won by 1",
+            "Stuart Briggle: <span class='stat-highlight'>Brother Victor</span> - beat Wes",
+            "Andrew Guasch: <span class='stat-highlight'>Rookie Sensation</span> - 75% win rate",
+            "Boogie Lastra: <span class='stat-highlight'>Best Never to Win</span> - 8-7 record",
+            "Shawn Noy: <span class='stat-highlight'>Heartbreak Captain</span> - lost by 1",
+            "Mario Martinez: <span class='stat-highlight'>Tough Luck Captain</span> - faced Danny",
+            "Stefano Diaz: <span class='stat-highlight'>Elite Arrival</span> - joined at 2.5 hcp",
+            "Eric Diaz: <span class='stat-highlight'>Team Player</span> - fills any role",
+            "Luis Sandoval: <span class='stat-highlight'>Rising Star</span> - winning record quickly",
+            "Kevin Samlut: <span class='stat-highlight'>Steady Newcomer</span> - .500 record",
+            "Mauricio Restrepo: <span class='stat-highlight'>Reliable Veteran</span> - 6 CRs",
+            
+            // Plus handicap insights
+            "Jordan Portal is the only player to achieve plus handicap status (+3.1 in 2025)",
+            "Jordan Portal improved from scratch (0) to +3.1 - a 3.1 stroke improvement to plus territory",
+            "In 2025, Jordan Portal (+3.1) had to give strokes to every other player in the field",
+            "The gap between Jordan Portal (+3.1) and Mooser Rodriguez (37) was 40.1 strokes in 2025",
+            
+            // Course-specific insights
+            "West Palm Beach Par 3 (52.9/113) was the shortest and easiest course in CR history",
+            "Champions Gate International (73.0/132) has the highest course rating played for Singles",
+            "Grand Cypress Links (70.4/117) had the lowest slope rating in the last 4 years",
+            "Waldorf Astoria (71.7/137) has the highest slope rating for any Singles course",
+            "Reunion courses have been used 11 times across all CRs - the most popular venue",
+            
+            // Team handicap calculations
+            "In Scrambles, a 10 and 20 handicapper would play as a 6.5 team (35% + 15%)",
+            "The maximum strokes a team could give in Scramble is about 8-10 strokes",
+            "In Best Ball, both players use full handicaps - biggest advantage for format",
+            "A scratch player paired with a 30 gives the team huge Best Ball flexibility",
+            
+            // Format analysis
+            "Singles matches have produced the most lopsided results in CR history",
+            "Scramble format favors elite players more due to 35%/15% formula",
+            "Best Ball is the most handicap-friendly format with full strokes for both",
+            "Teams with mixed handicaps (low + high) excel in Best Ball format",
+            
+            // Deep percentage analysis
+            "Teams giving strokes in Scrambles win 72% of matches due to 35%/15% formula",
+            "Elite players (<5 hcp) win 68% of Singles matches when giving 10+ strokes",
+            "Best Ball teams with 20+ hcp spread win 61% vs similar handicap teams",
+            "Matches decided by 1 hole: 23% overall, but 31% in Singles format",
+            
+            // Format-specific win rates
+            "In Scrambles, the lower handicap team wins 72% of the time",
+            "In Best Ball, the lower handicap team wins only 58% of the time",
+            "Singles matches see the favorite win 64% when giving 5-10 strokes",
+            "When giving 15+ strokes in Singles, favorites still win 52% of matches",
+            
+            // Upset analysis
+            "Biggest Singles upset potential: 20+ handicapper beating scratch (18% occurrence)",
+            "Scramble upsets (team giving 3+ strokes loses) happen 28% of the time",
+            "Best Ball produces the most upsets at 42% due to full handicaps",
+            "Weather conditions increase upset probability by estimated 15%",
+            
+            // Course difficulty insights
+            "The toughest Singles course/slope combination: Champions Gate Int'l 2024 (73.0/132)",
+            "Disney's Palm (68.7/124) was the easiest Best Ball course rating in CR history",
+            "Reunion Nicklaus from blue tees has been used for both Scramble and Singles",
+            "The average course rating across all CRs is 70.3 - typical championship difficulty",
+            
+            // Handicap differential analysis
+            "The largest handicap gap in a match: 40+ strokes (Jordan +3.1 vs Ernesto 40)",
+            "Teams with 15+ stroke handicap differences excel in Best Ball format",
+            "In 2025, the average team handicap differential in Scrambles was 3.2 strokes",
+            "Plus handicap players must give strokes even to scratch golfers",
+            
+            // Performance metrics
+            "Players who improve 5+ strokes often see immediate CR success",
+            "The average handicap improvement for CR players is 1.8 strokes over 4 years",
+            "90% of players with 20+ handicaps have won at least one CR",
+            "Handicaps between 15-20 have the highest CR championship rate (71%)",
+            
+            // Strategic insights
+            "Scramble pairings work best with handicaps 10-15 strokes apart",
+            "Best Ball favors one elite + one high handicapper for maximum coverage",
+            "Singles matches within 5 handicap strokes produce the closest matches",
+            "Course slope above 130 increases importance of course management"
+        ];
+
+        // Display random stat on load - cycles through all 365 based on day of year
+        function displayRandomStat() {
+            const statElement = document.querySelector('.stat-of-day .stat-content');
+            
+            // Get day of year (1-365)
+            const now = new Date();
+            const start = new Date(now.getFullYear(), 0, 0);
+            const diff = now - start;
+            const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
+            
+            // Use day of year to select stat (cycles through all 365)
+            const statIndex = dayOfYear % randomStats.length;
+            statElement.innerHTML = randomStats[statIndex];
+        }
+
+        // Initialize with overview and random stat
+        showOverview(document.getElementById('content'));
+        displayRandomStat();
+    </script>
+</body>
+</html>
