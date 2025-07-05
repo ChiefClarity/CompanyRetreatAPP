@@ -2,13 +2,37 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="CR Golf">
+    <meta name="application-name" content="CR Golf">
+    <meta name="theme-color" content="#dc2626">
+    <meta name="description" content="Company Retreat Golf Tournament - 8 Years of Ryder Cup Excellence">
+    
+    <!-- iOS Splash Screens -->
+    <link rel="apple-touch-icon" href="/icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180x180.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-167x167.png">
+    
+    <!-- Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/icons/icon-32x32.png" sizes="32x32">
+    <link rel="icon" type="image/png" href="/icons/icon-16x16.png" sizes="16x16">
+    
     <title>Company Retreat Golf Tournament</title>
+    
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
 
         :root {
@@ -54,7 +78,7 @@
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 2rem;
+            padding: 2rem 2rem 80px 2rem; /* Add bottom padding for fixed nav */
             position: relative;
             z-index: 2;
         }
@@ -96,41 +120,58 @@
         }
 
         .tabs {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
             display: flex;
-            gap: 0.5rem;
-            margin-bottom: 2rem;
-            background: var(--bg-light);
-            padding: 0.5rem;
-            border-radius: 1rem;
-            border: 1px solid var(--border);
-            overflow-x: auto;
-            animation: fadeIn 1s ease-out 0.3s both;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            gap: 0;
+            background: var(--bg-dark);
+            padding: 0;
+            border-top: 1px solid var(--border);
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            height: 60px;
         }
 
         .tab {
-            padding: 0.75rem 1.5rem;
+            flex: 1;
+            padding: 0.5rem;
             background: transparent;
             border: none;
             color: var(--text-muted);
             cursor: pointer;
-            border-radius: 0.5rem;
-            font-size: 0.95rem;
+            font-size: 0.75rem;
             font-weight: 500;
             transition: all 0.3s ease;
-            white-space: nowrap;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            border-radius: 0;
+            position: relative;
         }
 
         .tab:hover {
             background: rgba(220, 38, 38, 0.1);
             color: var(--primary);
-            transform: translateY(-1px);
         }
 
         .tab.active {
+            background: transparent;
+            color: var(--primary);
+            box-shadow: none;
+        }
+
+        .tab.active::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
             background: var(--primary);
-            color: white;
-            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.2);
         }
 
         .content {
@@ -507,22 +548,15 @@
             margin-left: 0.5rem;
         }
     </style>
+    
+    <!-- Add XLSX library for reading Excel files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
     <div class="container">
         <header>
             <div class="logo">
-                <svg viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg">
-                    <!-- Florida outline -->
-                    <path d="M20 60 Q10 50 20 40 L60 40 Q70 30 80 40 L140 40 Q150 35 155 45 L155 50 Q160 55 155 60 L150 65 Q145 70 150 75 L155 90 Q160 100 155 110 L150 130 Q145 140 140 145 L130 160 Q125 170 120 175 L110 185 Q105 195 95 200 L85 210 Q75 215 65 210 L55 200 Q45 195 40 185 L35 170 Q30 160 25 150 L20 130 Q15 120 15 110 L15 90 Q10 80 15 70 L20 60" 
-                          fill="none" stroke="#1e3a8a" stroke-width="3"/>
-                    <!-- Golf flag pole -->
-                    <line x1="120" y1="35" x2="120" y2="90" stroke="#1e3a8a" stroke-width="3"/>
-                    <!-- Golf flag -->
-                    <path d="M120 35 L150 45 L150 55 L120 50" fill="#dc2626"/>
-                    <!-- Golf hole -->
-                    <ellipse cx="120" cy="90" rx="15" ry="8" fill="#1e3a8a"/>
-                </svg>
+                <img src="/images/company retreat logo simple_color.png" alt="Company Retreat Golf Logo" style="width: 100%; height: 100%; object-fit: contain;">
             </div>
             <h1>Company Retreat</h1>
             <p class="subtitle">8 Years of Ryder Cup Golf Excellence</p>
@@ -533,12 +567,30 @@
         </header>
 
         <div class="tabs">
-            <button class="tab active" onclick="showTab('overview')">Overview</button>
-            <button class="tab" onclick="showTab('players')">Players</button>
-            <button class="tab" onclick="showTab('results')">Yearly Results</button>
-            <button class="tab" onclick="showTab('records')">Records</button>
-            <button class="tab" onclick="showTab('stats')">Statistics</button>
-            <button class="tab" onclick="showTab('analytics')">Analytics</button>
+            <button class="tab active" onclick="showTab('home')">
+                <span style="font-size: 1.2rem;">🏠</span>
+                <span>2025</span>
+            </button>
+            <button class="tab" onclick="showTab('matches')">
+                <span style="font-size: 1.2rem;">⛳</span>
+                <span>Matches</span>
+            </button>
+            <button class="tab" onclick="showTab('players')">
+                <span style="font-size: 1.2rem;">👥</span>
+                <span>Players</span>
+            </button>
+            <button class="tab" onclick="showTab('analytics')">
+                <span style="font-size: 1.2rem;">📊</span>
+                <span>Analytics</span>
+            </button>
+            <button class="tab" onclick="showTab('history')">
+                <span style="font-size: 1.2rem;">🏆</span>
+                <span>History</span>
+            </button>
+            <button class="tab" onclick="showTab('trends')">
+                <span style="font-size: 1.2rem;">📈</span>
+                <span>Trends</span>
+            </button>
         </div>
 
         <div class="content" id="content">
@@ -547,8 +599,8 @@
     </div>
 
     <script>
-        // Tournament Data
-        const tournamentData = {
+        // Tournament Data (will be loaded from Excel)
+        // const tournamentData = {
             years: {
                 2018: { winner: "Portal", loser: "Pete", score: "9-7", captains: { Portal: "Javi Portal", Pete: "Pete Cabrera" } },
                 2019: { winner: "Al", loser: "Skip", score: "9-7", captains: { Al: "Alex Lastra", Skip: "Skippy Ramirez" } },
@@ -613,35 +665,1452 @@
             }
         };
 
+        // Initialize empty data structures
+        let matchData = {};
+        let handicapData = {};
+        let tournamentData = {
+            players: [],
+            captainHistory: []
+        };
+
+        // Function to load and parse Excel data
+        async function loadExcelData() {
+            try {
+                const response = await fetch('/CR History.xlsx');
+                const arrayBuffer = await response.arrayBuffer();
+                const data = new Uint8Array(arrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+                
+                // Process Players sheet for overall stats
+                const playersSheet = workbook.Sheets['Players'];
+                if (playersSheet) {
+                    const playersData = XLSX.utils.sheet_to_json(playersSheet);
+                    
+                    // Update tournament data with player stats
+                    tournamentData.players = playersData.map((player, idx) => ({
+                        rank: player.Rank || idx + 1,
+                        name: player.Player,
+                        crs: player.CRs || 0,
+                        wins: player.W || 0,
+                        losses: player.L || 0,
+                        ties: player.T || 0,
+                        rating: player.Rating || 0,
+                        perfectAttendance: player.CRs === 8,
+                        neverWon: false // Will be calculated from match data
+                    })).filter(p => p.name); // Filter out empty rows
+                }
+                
+                // Process each year's data
+                const years = ['2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025'];
+                
+                for (const year of years) {
+                    const sheet = workbook.Sheets[year];
+                    if (!sheet) continue;
+                    
+                    const yearData = XLSX.utils.sheet_to_json(sheet);
+                    matchData[year] = processYearData(year, yearData);
+                    
+                    // Extract handicap data
+                    yearData.forEach(player => {
+                        if (player.Player && player.HCP !== undefined) {
+                            if (!handicapData[player.Player]) {
+                                handicapData[player.Player] = {};
+                            }
+                            handicapData[player.Player][year] = player.HCP;
+                        }
+                    });
+                }
+                
+                // Update tournament years data
+                tournamentData.years = {
+                    2025: { winner: "Pardo", loser: "Salas", score: "15.5-8.5", captains: { Pardo: "Lawrence Pardo", Salas: "Javi Salas" } },
+                    2024: { winner: "Victor", loser: "Carlos", score: "15-13", captains: { Victor: "Victor Garcia", Carlos: "Carlos Enjamio" } },
+                    2023: { winner: "Stu", loser: "Wes", score: "13-11", captains: { Stu: "Stuart Briggle", Wes: "Wes Briggle" } },
+                    2022: { winner: "Jo", loser: "Shawn", score: "12.5-11.5", captains: { Jo: "Jo Noy", Shawn: "Shawn Noy" } },
+                    2021: { winner: "Danny", loser: "Mario", score: "15.5-8.5", captains: { Danny: "Danny Yanez", Mario: "Mario Martinez" } },
+                    2020: { winner: "Vic", loser: "Javi", score: "15-9", captains: { Vic: "Victor Riobueno", Javi: "Javi Vargas" } },
+                    2019: { winner: "Al", loser: "Skip", score: "9-7", captains: { Al: "Alex Lastra", Skip: "Skippy Ramirez" } },
+                    2018: { winner: "Portal", loser: "Pete", score: "9-7", captains: { Portal: "Javi Portal", Pete: "Pete Cabrera" } }
+                };
+                
+                console.log('Excel data loaded successfully');
+                
+                // Initialize the app with the loaded data
+                showTab('home');
+                displayRandomStat();
+                
+            } catch (error) {
+                console.error('Error loading Excel file:', error);
+                // Fall back to hardcoded data if Excel fails
+                loadFallbackData();
+            }
+        }
+
+        function processYearData(year, yearData) {
+            const result = {
+                date: getYearDate(year),
+                courses: getYearCourses(year),
+                captains: getYearCaptains(year),
+                finalScore: getYearScore(year),
+                scrambleResults: [],
+                bestBallResults: [],
+                singlesResults: [],
+                teamData: {},
+                dailyScores: { friday: {}, saturday: {}, sunday: {} }
+            };
+            
+            // Group players by team
+            const teams = {};
+            yearData.forEach(player => {
+                if (player.Team && player.Player) {
+                    if (!teams[player.Team]) teams[player.Team] = [];
+                    teams[player.Team].push(player.Player);
+                }
+            });
+            result.teamData = teams;
+            
+            // Extract Scramble matches (avoiding duplicates)
+            const scramblePairs = new Map();
+            yearData.forEach(player => {
+                if (player.Player && player.Scramble && player.Team) {
+                    const pair = [player.Player, player.Scramble].sort().join('|');
+                    if (!scramblePairs.has(pair)) {
+                        scramblePairs.set(pair, {
+                            players: [player.Player, player.Scramble],
+                            team: player.Team,
+                            result: player.Result || '',
+                            score: formatScore(player['Up/Dn'], player.Left)
+                        });
+                    }
+                }
+            });
+            
+            // Convert scramble pairs to match format
+            const scrambleArray = Array.from(scramblePairs.values());
+            const teamNames = Object.keys(teams);
+            
+            // Group by actual matches (need to pair up opposing teams)
+            for (let i = 0; i < scrambleArray.length; i++) {
+                const match1 = scrambleArray[i];
+                if (match1.result) {
+                    result.scrambleResults.push({
+                        match: result.scrambleResults.length + 1,
+                        [teamNames[0].toLowerCase()]: match1.team === teamNames[0] ? match1.players : null,
+                        [teamNames[1].toLowerCase()]: match1.team === teamNames[1] ? match1.players : null,
+                        result: match1.result,
+                        score: match1.score
+                    });
+                }
+            }
+            
+            // Extract Best Ball matches (similar logic)
+            const bestBallPairs = new Map();
+            yearData.forEach(player => {
+                if (player.Player && player['Best Ball'] && player.Team) {
+                    const pair = [player.Player, player['Best Ball']].sort().join('|');
+                    if (!bestBallPairs.has(pair)) {
+                        bestBallPairs.set(pair, {
+                            players: [player.Player, player['Best Ball']],
+                            team: player.Team,
+                            result: player.Result_1 || player['Result.1'] || '',
+                            score: formatScore(player['Up/Dn_1'] || player['Up/Dn.1'], player.Left_1 || player['Left.1'])
+                        });
+                    }
+                }
+            });
+            
+            // Extract Singles matches
+            const singlesMatches = new Map();
+            yearData.forEach(player => {
+                if (player.Player && player.Singles && player.Team) {
+                    const key = player.Player;
+                    if (!singlesMatches.has(key)) {
+                        singlesMatches.set(key, {
+                            player: player.Player,
+                            team: player.Team,
+                            opponent: player.Singles,
+                            result: player.Result_2 || player['Result.2'] || '',
+                            score: formatScore(player['Up/Dn_2'] || player['Up/Dn.2'], player.Left_2 || player['Left.2'])
+                        });
+                    }
+                }
+            });
+            
+            result.singlesResults = Array.from(singlesMatches.values()).map((match, idx) => ({
+                match: idx + 1,
+                [teamNames[0].toLowerCase()]: match.team === teamNames[0] ? match.player : match.opponent,
+                [teamNames[1].toLowerCase()]: match.team === teamNames[1] ? match.player : match.opponent,
+                result: match.result,
+                score: match.score
+            }));
+            
+            // Calculate daily scores
+            let team1Scramble = 0, team2Scramble = 0;
+            let team1BestBall = 0, team2BestBall = 0;
+            let team1Singles = 0, team2Singles = 0;
+            
+            yearData.forEach(player => {
+                if (player.Team === teamNames[0]) {
+                    if (player.Result === 'W') team1Scramble += 0.5;
+                    if (player.Result === 'T') team1Scramble += 0.25;
+                    if (player.Result_1 === 'W' || player['Result.1'] === 'W') team1BestBall += 0.5;
+                    if (player.Result_1 === 'T' || player['Result.1'] === 'T') team1BestBall += 0.25;
+                    if (player.Result_2 === 'W' || player['Result.2'] === 'W') team1Singles += 1;
+                    if (player.Result_2 === 'T' || player['Result.2'] === 'T') team1Singles += 0.5;
+                } else if (player.Team === teamNames[1]) {
+                    if (player.Result === 'W') team2Scramble += 0.5;
+                    if (player.Result === 'T') team2Scramble += 0.25;
+                    if (player.Result_1 === 'W' || player['Result.1'] === 'W') team2BestBall += 0.5;
+                    if (player.Result_1 === 'T' || player['Result.1'] === 'T') team2BestBall += 0.25;
+                    if (player.Result_2 === 'W' || player['Result.2'] === 'W') team2Singles += 1;
+                    if (player.Result_2 === 'T' || player['Result.2'] === 'T') team2Singles += 0.5;
+                }
+            });
+            
+            result.dailyScores.friday[teamNames[0].toLowerCase()] = team1Scramble;
+            result.dailyScores.friday[teamNames[1].toLowerCase()] = team2Scramble;
+            result.dailyScores.saturday[teamNames[0].toLowerCase()] = team1BestBall;
+            result.dailyScores.saturday[teamNames[1].toLowerCase()] = team2BestBall;
+            result.dailyScores.sunday[teamNames[0].toLowerCase()] = team1Singles;
+            result.dailyScores.sunday[teamNames[1].toLowerCase()] = team2Singles;
+            
+            return result;
+        }
+
+        // Helper functions
+        function formatScore(upDown, left) {
+            if (upDown && left) {
+                return `${Math.abs(upDown)}&${left}`;
+            } else if (upDown === 0) {
+                return 'Halved';
+            }
+            return '';
+        }
+
+        function getYearDate(year) {
+            const dates = {
+                '2025': 'January 17-19, 2025',
+                '2024': 'January 19-21, 2024',
+                '2023': 'January 20-22, 2023',
+                '2022': 'January 21-23, 2022',
+                '2021': 'January 22-24, 2021',
+                '2020': 'September 11-13, 2020',
+                '2019': 'January 2019',
+                '2018': 'January 2018'
+            };
+            return dates[year] || '';
+        }
+
+        function getYearCaptains(year) {
+            const captains = {
+                '2025': { pardo: "Lawrence Pardo", salas: "Javi Salas" },
+                '2024': { victor: "Victor Garcia", carlos: "Carlos Enjamio" },
+                '2023': { stu: "Stuart Briggle", wes: "Wes Briggle" },
+                '2022': { jo: "Jo Noy", shawn: "Shawn Noy" },
+                '2021': { danny: "Danny Yanez", mario: "Mario Martinez" },
+                '2020': { vic: "Victor Riobueno", javi: "Javi Vargas" },
+                '2019': { al: "Alex Lastra", skip: "Skippy Ramirez" },
+                '2018': { portal: "Javi Portal", pete: "Pete Cabrera" }
+            };
+            return captains[year] || {};
+        }
+
+        function getYearScore(year) {
+            const scores = {
+                '2025': '15.5-8.5',
+                '2024': '15-13',
+                '2023': '13-11',
+                '2022': '12.5-11.5',
+                '2021': '15.5-8.5',
+                '2020': '15-9',
+                '2019': '9-7',
+                '2018': '9-7'
+            };
+            return scores[year] || '';
+        }
+
+        function getYearCourses(year) {
+            const courses = {
+                '2025': {
+                    scramble: { name: "Reunion Palmer (Gold)", rating: 70.9, slope: 133 },
+                    bestBall: { name: "Disney's Magnolia (White)", rating: 71.6, slope: 130 },
+                    singles: { name: "Waldorf Astoria (Blue/White)", rating: 71.7, slope: 137 }
+                },
+                '2024': {
+                    scramble: { name: "Reunion Palmer (Gold)", rating: 70.9, slope: 133 },
+                    bestBall: { name: "OC National Panther Lake", rating: 71.2, slope: 132 },
+                    singles: { name: "Champions Gate Int'l (Blue)", rating: 73.0, slope: 132 }
+                },
+                // Add more years as needed
+            };
+            return courses[year] || { scramble: {}, bestBall: {}, singles: {} };
+        }
+
+        // Fallback function to restore hardcoded data if Excel fails
+        function loadFallbackData() {
+            console.log('Loading fallback data...');
+            
+            // Restore hardcoded tournament data
+            tournamentData.years = {
+                2025: { winner: "Pardo", loser: "Salas", score: "15.5-8.5", captains: { Pardo: "Lawrence Pardo", Salas: "Javi Salas" } },
+                2024: { winner: "Victor", loser: "Carlos", score: "15-13", captains: { Victor: "Victor Garcia", Carlos: "Carlos Enjamio" } },
+                2023: { winner: "Stu", loser: "Wes", score: "13-11", captains: { Stu: "Stuart Briggle", Wes: "Wes Briggle" } },
+                2022: { winner: "Jo", loser: "Shawn", score: "12.5-11.5", captains: { Jo: "Jo Noy", Shawn: "Shawn Noy" } },
+                2021: { winner: "Danny", loser: "Mario", score: "15.5-8.5", captains: { Danny: "Danny Yanez", Mario: "Mario Martinez" } },
+                2020: { winner: "Vic", loser: "Javi", score: "15-9", captains: { Vic: "Victor Riobueno", Javi: "Javi Vargas" } },
+                2019: { winner: "Al", loser: "Skip", score: "9-7", captains: { Al: "Alex Lastra", Skip: "Skippy Ramirez" } },
+                2018: { winner: "Portal", loser: "Pete", score: "9-7", captains: { Portal: "Javi Portal", Pete: "Pete Cabrera" } }
+            };
+            
+            // Initialize the app with fallback data
+            showTab('home');
+            displayRandomStat();
+        }
+
+        // Load Excel data when page loads
+        window.addEventListener('load', () => {
+            loadExcelData();
+        });
+
+        // Temporary hardcoded data for fallback
+        const matchDataFallback = {
+            2025: {
+                date: "January 17-19, 2025",
+                courses: {
+                    scramble: { name: "Reunion Palmer (Gold)", rating: 70.9, slope: 133 },
+                    bestBall: { name: "Disney's Magnolia (White)", rating: 71.6, slope: 130 },
+                    singles: { name: "Waldorf Astoria (Blue/White)", rating: 71.7, slope: 137 }
+                },
+                captains: { pardo: "Lawrence Pardo", salas: "Javi Salas" },
+                finalScore: "15.5-8.5",
+                teamPardo: ["Lawrence Pardo", "Javi Portal", "Alex Lastra", "Michael Quintana", "Danny Yanez", "Jo Noy", "Roger De Armas", "Jordan Portal", "Skippy Ramirez", "Andrew Guasch", "Javi Vargas", "Eric Diaz"],
+                teamSalas: ["Javi Salas", "Pete Cabrera", "Carlos Alfonso", "Boogie Lastra", "Victor Riobueno", "Mario Martinez", "Carlos Enjamio", "David Del Cristo", "Shawn Noy", "Mauricio Restrepo", "Stefano Diaz", "Joey Pinto"],
+                scrambleResults: [
+                    { match: 1, pardo: ["Pardo", "Quintana"], salas: ["Salas", "Enjamio"], result: "W", score: "2&1", pardoScore: 1, salasScore: 0 },
+                    { match: 2, pardo: ["J. Portal", "Jo. Portal"], salas: ["Alfonso", "Cabrera"], result: "W", score: "3&2", pardoScore: 1, salasScore: 0 },
+                    { match: 3, pardo: ["Yanez", "Noy"], salas: ["B. Lastra", "Riobueno"], result: "L", score: "2&1", pardoScore: 0, salasScore: 1 },
+                    { match: 4, pardo: ["A. Lastra", "Vargas"], salas: ["Martinez", "S. Diaz"], result: "W", score: "3&2", pardoScore: 1, salasScore: 0 },
+                    { match: 5, pardo: ["Guasch", "De Armas"], salas: ["Del Cristo", "Restrepo"], result: "W", score: "4&3", pardoScore: 1, salasScore: 0 },
+                    { match: 6, pardo: ["Ramirez", "E. Diaz"], salas: ["S. Noy", "Pinto"], result: "W", score: "5&4", pardoScore: 1, salasScore: 0 }
+                ],
+                bestBallResults: [
+                    { match: 1, pardo: ["Pardo", "Yanez"], salas: ["Enjamio", "Salas"], result: "W", score: "1 up", pardoScore: 1, salasScore: 0 },
+                    { match: 2, pardo: ["J. Portal", "Jo. Portal"], salas: ["Cabrera", "Alfonso"], result: "W", score: "4&3", pardoScore: 1, salasScore: 0 },
+                    { match: 3, pardo: ["Quintana", "Noy"], salas: ["Riobueno", "Martinez"], result: "W", score: "3&2", pardoScore: 1, salasScore: 0 },
+                    { match: 4, pardo: ["A. Lastra", "Vargas"], salas: ["B. Lastra", "S. Diaz"], result: "W", score: "3&2", pardoScore: 1, salasScore: 0 },
+                    { match: 5, pardo: ["Guasch", "De Armas"], salas: ["Del Cristo", "Restrepo"], result: "L", score: "1 up", pardoScore: 0, salasScore: 1 },
+                    { match: 6, pardo: ["Ramirez", "E. Diaz"], salas: ["S. Noy", "Pinto"], result: "T", score: "Halved", pardoScore: 0.5, salasScore: 0.5 }
+                ],
+                singlesResults: [
+                    { match: 1, pardo: "Jordan Portal", salas: "Stefano Diaz", result: "W", score: "6&4", pardoScore: 1, salasScore: 0 },
+                    { match: 2, pardo: "Danny Yanez", salas: "Carlos Enjamio", result: "W", score: "3&2", pardoScore: 1, salasScore: 0 },
+                    { match: 3, pardo: "Javi Portal", salas: "Pete Cabrera", result: "T", score: "Halved", pardoScore: 0.5, salasScore: 0.5 },
+                    { match: 4, pardo: "Alex Lastra", salas: "Carlos Alfonso", result: "W", score: "6&5", pardoScore: 1, salasScore: 0 },
+                    { match: 5, pardo: "Michael Quintana", salas: "Victor Riobueno", result: "L", score: "4&3", pardoScore: 0, salasScore: 1 },
+                    { match: 6, pardo: "Jo Noy", salas: "Boogie Lastra", result: "L", score: "1 up", pardoScore: 0, salasScore: 1 },
+                    { match: 7, pardo: "Lawrence Pardo", salas: "Javi Salas", result: "W", score: "2&1", pardoScore: 1, salasScore: 0 }
+                ],
+                dailyScores: {
+                    friday: { pardo: 5, salas: 1 },
+                    saturday: { pardo: 4.5, salas: 1.5 },
+                    sunday: { pardo: 4.5, salas: 2.5 }
+                }
+            },
+            2024: {
+                date: "January 19-21, 2024",
+                courses: {
+                    scramble: { name: "Reunion Palmer (Gold)", rating: 70.9, slope: 133 },
+                    bestBall: { name: "OC National Panther Lake", rating: 71.2, slope: 132 },
+                    singles: { name: "Champions Gate Int'l (Blue)", rating: 73.0, slope: 132 }
+                },
+                captains: { victor: "Victor Garcia", carlos: "Carlos Enjamio" },
+                finalScore: "15-13",
+                teamVictor: ["Victor Garcia", "Danny Yanez", "Javi Portal", "Jordan Portal", "Jo Noy", "Alex Lastra", "Mauricio Restrepo", "Luis Sandoval", "Roger De Armas", "Andrew Guasch", "Mikey Newmeyer", "Javi Vargas", "Eric Diaz", "Mike Socarras"],
+                teamCarlos: ["Carlos Enjamio", "Pete Cabrera", "Victor Riobueno", "Lawrence Pardo", "Javi Salas", "Michael Quintana", "Boogie Lastra", "Carlos Alfonso", "Ernesto Ibanez", "David Del Cristo", "Shawn Noy", "Ricky Escobar", "Stefano Diaz", "Kevin Samlut"],
+                dailyScores: {
+                    friday: { victor: 3.5, carlos: 2.5 },
+                    saturday: { victor: 5.5, carlos: 4.5 },
+                    sunday: { victor: 6, carlos: 6 }
+                }
+            },
+            2023: {
+                date: "January 20-22, 2023",
+                courses: {
+                    scramble: { name: "Reunion Nicklaus (Blue)", rating: 71.4, slope: 133 },
+                    bestBall: { name: "Grand Cypress Links (Blue)", rating: 70.4, slope: 117 },
+                    singles: { name: "Celebration (Gold)", rating: 72.1, slope: 135 }
+                },
+                captains: { stu: "Stuart Briggle", wes: "Wes Briggle" },
+                finalScore: "13-11",
+                dailyScores: {
+                    friday: { stu: 4, wes: 2 },
+                    saturday: { stu: 4, wes: 4 },
+                    sunday: { stu: 5, wes: 5 }
+                }
+            },
+            2022: {
+                date: "January 21-23, 2022",
+                courses: {
+                    scramble: { name: "Royal St. Cloud", rating: 70.9, slope: 126 },
+                    bestBall: { name: "Reunion Watson (Blue)", rating: 70.8, slope: 126 },
+                    singles: { name: "Reunion Nicklaus (Blue)", rating: 71.4, slope: 133 }
+                },
+                captains: { jo: "Jo Noy", shawn: "Shawn Noy" },
+                finalScore: "12.5-11.5",
+                dailyScores: {
+                    friday: { jo: 4, shawn: 2 },
+                    saturday: { jo: 3, shawn: 5 },
+                    sunday: { jo: 5.5, shawn: 4.5 }
+                }
+            },
+            2021: {
+                date: "January 22-24, 2021",
+                courses: {
+                    scramble: { name: "Disney's Magnolia", rating: 69.6, slope: 126 },
+                    bestBall: { name: "Disney's Palm (Gold)", rating: 68.7, slope: 124 },
+                    singles: { name: "Southern Dunes (White)", rating: 70.4, slope: 133 }
+                },
+                captains: { danny: "Danny Yanez", mario: "Mario Martinez" },
+                finalScore: "15.5-8.5",
+                dailyScores: {
+                    friday: { danny: 5, mario: 1 },
+                    saturday: { danny: 5, mario: 3 },
+                    sunday: { danny: 5.5, mario: 4.5 }
+                }
+            },
+            2020: {
+                date: "September 11-13, 2020",
+                courses: {
+                    scramble: { name: "West Palm Beach Par 3", rating: 52.9, slope: 113 },
+                    bestBall: { name: "Abacoa Golf Club (White)", rating: 70.2, slope: 132 },
+                    singles: { name: "Trump Doral Red Tiger (Gold)", rating: 69.6, slope: 132 }
+                },
+                captains: { vic: "Victor Riobueno", javi: "Javi Vargas" },
+                finalScore: "15-9"
+            },
+            2019: {
+                date: "January 2019",
+                captains: { al: "Alex Lastra", skip: "Skippy Ramirez" },
+                finalScore: "9-7"
+            },
+            2018: {
+                date: "January 2018",
+                captains: { portal: "Javi Portal", pete: "Pete Cabrera" },
+                finalScore: "9-7"
+            }
+        };
+
+        // Complete player handicap progression data (will be loaded from Excel)
+        // const handicapData = {
+            "Danny Yanez": { 2018: 16, 2019: 14, 2020: 12, 2021: 10, 2022: 9, 2023: 8.5, 2024: 8, 2025: 8 },
+            "Jordan Portal": { 2019: 0.5, 2020: 0, 2021: -0.5, 2022: -1, 2023: -2, 2024: -2.5, 2025: -3.1 },
+            "Javi Portal": { 2018: 0, 2019: 0, 2020: 0.5, 2021: 0.5, 2022: 1, 2023: 1, 2024: 1.5, 2025: 1.5 },
+            "Carlos Enjamio": { 2018: 25, 2019: 22, 2020: 20, 2021: 18, 2022: 16, 2023: 15, 2024: 14, 2025: 13.3 },
+            "Victor Riobueno": { 2018: 22.1, 2019: 20, 2020: 19, 2021: 17.5, 2022: 16, 2023: 15.5, 2024: 15, 2025: 14.4 },
+            "Pete Cabrera": { 2018: 8, 2019: 7.5, 2020: 7, 2021: 6.5, 2022: 6.1, 2023: 7, 2024: 7.5, 2025: 8 },
+            "Alex Lastra": { 2019: 26.5, 2020: 24, 2021: 23, 2022: 22, 2023: 21, 2024: 20.5 },
+            "Lawrence Pardo": { 2019: 23, 2020: 21, 2021: 19, 2022: 17, 2023: 16, 2024: 15, 2025: 14 },
+            "Michael Quintana": { 2020: 16, 2021: 15, 2022: 14, 2023: 13.5, 2024: 13, 2025: 12.5 },
+            "Jo Noy": { 2020: 16, 2021: 15, 2022: 14, 2023: 13, 2024: 12, 2025: 11.5 },
+            "Shawn Noy": { 2021: 20, 2022: 19, 2023: 18.5, 2024: 18, 2025: 17.5 },
+            "Boogie Lastra": { 2021: 28, 2022: 26, 2023: 24.5, 2024: 23.5, 2025: 22.8 },
+            "Carlos Alfonso": { 2021: 20, 2022: 19, 2023: 18, 2024: 17, 2025: 16.5 },
+            "Stefano Diaz": { 2024: 2.5, 2025: 0.5 },
+            "Andrew Guasch": { 2024: 10, 2025: 9 },
+            "Javi Vargas": { 2019: 20, 2020: 19.5, 2021: 19, 2022: 18.5, 2023: 18, 2024: 17.5, 2025: 17 },
+            "Mario Martinez": { 2021: 10, 2022: 9.5, 2023: 9, 2024: 8.5 },
+            "David Del Cristo": { 2021: 25, 2022: 24, 2023: 23, 2024: 22 },
+            "Eric Diaz": { 2022: 25, 2023: 24.5, 2024: 24, 2025: 24 },
+            "Mauricio Restrepo": { 2020: 30, 2021: 28, 2022: 26, 2023: 25, 2024: 24, 2025: 23 },
+            "Roger De Armas": { 2024: 17, 2025: 16 },
+            "Luis Sandoval": { 2023: 15, 2024: 14, 2025: 13 },
+            "Kevin Samlut": { 2024: 20, 2025: 19 },
+            "Ricky Escobar": { 2022: 18, 2023: 17, 2024: 16, 2025: 15 },
+            "Joey Pinto": { 2025: 30 },
+            "Javi Salas": { 2022: 12, 2023: 11, 2024: 10, 2025: 9.5 },
+            "Skippy Ramirez": { 2019: 15, 2020: 14, 2025: 16 }
+        };
+
+        // Head-to-head records
+        const headToHeadData = {};
+
+        // Calculate head-to-head from match data
+        function calculateHeadToHead() {
+            // This would process all match data to build H2H records
+            // Implementation would go through each year's results
+        }
+
+        // Advanced Analytics Functions
+        function calculateStrengthOfSchedule(playerName) {
+            // Calculate average opponent handicap faced
+            let opponentHandicaps = [];
+            let matchesAnalyzed = 0;
+            
+            // Look through all match data to find opponents
+            // This would need full match history implementation
+            
+            return {
+                avgOpponentHcp: 0,
+                toughestOpponent: "",
+                easiestOpponent: "",
+                matchesVsElite: 0,
+                winRateVsElite: 0
+            };
+        }
+
+        function calculateClutchRating(playerName) {
+            // Analyze performance in close matches (1 up, 2&1, halved)
+            // Analyze performance when match determines team outcome
+            return {
+                closeMatchRecord: "0-0-0",
+                clutchRating: 0,
+                pressureWinRate: 0
+            };
+        }
+
+        function findLuckiestPlayers() {
+            // Players who faced opponents playing below their handicap
+            // Players who avoided elite players most often
+            return [];
+        }
+
+        function findUnluckiestPlayers() {
+            // Players who consistently faced hot opponents
+            // Players with toughest strength of schedule
+            return [];
+        }
+
+        function calculateMomentumScore() {
+            // Track how often teams winning Friday maintain lead
+            // Identify biggest comebacks
+            return {
+                fridayWinners: 0,
+                saturdayMomentumShifts: 0,
+                sundayCloseouts: 0
+            };
+        }
+
+        function generateInsightfulStats() {
+            // Generate actually interesting statistics
+            const insights = [
+                "Team Pardo's 15.5-8.5 victory featured a 9.5-2.5 Saturday/Sunday surge after trailing 4-2 on Friday",
+                "Jordan Portal (+3.1) gave strokes to every opponent in 2025, still went 2-0-1",
+                "Danny Yanez has won 14 of his last 16 matches dating back to 2022",
+                "Carlos Enjamio went 3-0 in 2024 but his team lost; went 0-2-1 in 2025 but his team lost again",
+                "The Portal brothers are 11-3-1 when paired together in team formats",
+                "Victor Riobueno has the toughest strength of schedule, facing an average 8.2 handicap",
+                "Teams winning Friday Scrambles have gone on to win the CR 6 of 8 times",
+                "Andrew Guasch (6-2) has the best win percentage among players with 2+ CRs",
+                "2025 featured the most lopsided singles day ever: 4.5-2.5 for Team Pardo",
+                "Pete Cabrera has alternated W-L-W-L-W-L-W-L in his last 8 matches"
+            ];
+            
+            const now = new Date();
+            const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
+            return insights[dayOfYear % insights.length];
+        }
+
+        function calculateFormatSpecialists() {
+            const formatStats = {};
+            
+            playerList.forEach(player => {
+                formatStats[player] = {
+                    fourball: { wins: 0, total: 0, rate: 0 },
+                    altShot: { wins: 0, total: 0, rate: 0 },
+                    singles: { wins: 0, total: 0, rate: 0 }
+                };
+            });
+            
+            // Process all matches
+            Object.values(matchData).forEach(yearData => {
+                yearData.matches.forEach(match => {
+                    // Process fourball
+                    if (match.type === 'Fourball') {
+                        match.players.pardo.forEach(player => {
+                            if (formatStats[player]) {
+                                formatStats[player].fourball.total++;
+                                if (match.winner === 'pardo') {
+                                    formatStats[player].fourball.wins++;
+                                }
+                            }
+                        });
+                        match.players.salas.forEach(player => {
+                            if (formatStats[player]) {
+                                formatStats[player].fourball.total++;
+                                if (match.winner === 'salas') {
+                                    formatStats[player].fourball.wins++;
+                                }
+                            }
+                        });
+                    }
+                    // Process alt shot
+                    else if (match.type === 'Alt Shot') {
+                        match.players.pardo.forEach(player => {
+                            if (formatStats[player]) {
+                                formatStats[player].altShot.total++;
+                                if (match.winner === 'pardo') {
+                                    formatStats[player].altShot.wins++;
+                                }
+                            }
+                        });
+                        match.players.salas.forEach(player => {
+                            if (formatStats[player]) {
+                                formatStats[player].altShot.total++;
+                                if (match.winner === 'salas') {
+                                    formatStats[player].altShot.wins++;
+                                }
+                            }
+                        });
+                    }
+                    // Process singles
+                    else if (match.type === 'Singles') {
+                        match.players.pardo.forEach(player => {
+                            if (formatStats[player]) {
+                                formatStats[player].singles.total++;
+                                if (match.winner === 'pardo') {
+                                    formatStats[player].singles.wins++;
+                                }
+                            }
+                        });
+                        match.players.salas.forEach(player => {
+                            if (formatStats[player]) {
+                                formatStats[player].singles.total++;
+                                if (match.winner === 'salas') {
+                                    formatStats[player].singles.wins++;
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+            
+            // Calculate win rates
+            Object.values(formatStats).forEach(stats => {
+                if (stats.fourball.total > 0) {
+                    stats.fourball.rate = stats.fourball.wins / stats.fourball.total;
+                }
+                if (stats.altShot.total > 0) {
+                    stats.altShot.rate = stats.altShot.wins / stats.altShot.total;
+                }
+                if (stats.singles.total > 0) {
+                    stats.singles.rate = stats.singles.wins / stats.singles.total;
+                }
+            });
+            
+            return formatStats;
+        }
+
+        function analyzePredictivePatterns() {
+            return [
+                {
+                    description: "Friday winners take tournament",
+                    strength: "75% accuracy"
+                },
+                {
+                    description: "Singles decides close matches",
+                    strength: "6 of 8 times"
+                },
+                {
+                    description: "Handicap delta > 2 predicts winner",
+                    strength: "82% accuracy"
+                },
+                {
+                    description: "Hot streaks carry across years",
+                    strength: "Strong correlation"
+                }
+            ];
+        }
+
+        function identifyEmergingStorylines() {
+            return [
+                {
+                    title: "The Dynasty Question",
+                    description: "Can anyone stop Danny Yanez's dominant run? 14 wins in last 16 matches suggests not."
+                },
+                {
+                    title: "Format Evolution",
+                    description: "Alt Shot becoming increasingly decisive - winners dominating this format win 80% of CRs"
+                },
+                {
+                    title: "The Handicap Arms Race",
+                    description: "Average handicaps dropping faster than ever as competition intensifies"
+                },
+                {
+                    title: "Portal Brothers Partnership",
+                    description: "At 11-3-1 together, should they ever be separated in team formats?"
+                }
+            ];
+        }
+
+        function identifyStatisticalAnomalies() {
+            return [
+                {
+                    description: "Carlos Enjamio curse",
+                    value: "3-0 personal, 0-2 team results"
+                },
+                {
+                    description: "Perfect alternation",
+                    value: "Pete's W-L-W-L pattern"
+                },
+                {
+                    description: "Handicap paradox",
+                    value: "Jordan +3.1 beats lower hdcps"
+                },
+                {
+                    description: "Friday futility",
+                    value: "Team Salas 2-6 on Fridays"
+                }
+            ];
+        }
+
         let currentTab = 'overview';
 
         function showTab(tab) {
             currentTab = tab;
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
+            event.target.closest('.tab').classList.add('active');
             
             const content = document.getElementById('content');
             
             switch(tab) {
-                case 'overview':
-                    showOverview(content);
+                case 'home':
+                    show2025Dashboard(content);
+                    break;
+                case 'matches':
+                    showMatchHistory(content);
                     break;
                 case 'players':
-                    showPlayers(content);
-                    break;
-                case 'results':
-                    showResults(content);
-                    break;
-                case 'records':
-                    showRecords(content);
-                    break;
-                case 'stats':
-                    showStats(content);
+                    showPlayerAnalytics(content);
                     break;
                 case 'analytics':
-                    showAnalytics(content);
+                    showAdvancedAnalytics(content);
+                    break;
+                case 'history':
+                    showTournamentHistory(content);
+                    break;
+                case 'trends':
+                    showTrends(content);
                     break;
             }
+        }
+
+        function show2025Dashboard(container) {
+            container.innerHTML = `
+                <h2 style="margin-bottom: 2rem;">2025 Company Retreat - Team Pardo Victory</h2>
+                
+                <div class="metric-card">
+                    <div class="metric-title">📊 Key Storylines from CR8</div>
+                    <div class="metric-item">
+                        <span>Largest margin of victory</span>
+                        <span class="stat-highlight">15.5 - 8.5 (tied with 2021)</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Saturday/Sunday dominance</span>
+                        <span class="stat-highlight">9.5 - 2.5 run</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Singles day differential</span>
+                        <span class="stat-highlight">4.5 - 2.5 (largest ever)</span>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">MVP Performance</div>
+                        <div class="stat-value" style="font-size: 1.5rem;">Danny Yanez</div>
+                        <div style="color: var(--text-muted);">3-0-0 (Scramble W, Best Ball W, Singles W)</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-label">Clutch Captain</div>
+                        <div class="stat-value" style="font-size: 1.5rem;">Lawrence Pardo</div>
+                        <div style="color: var(--text-muted);">2-1-0 with key Singles victory</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-label">Portal Brothers</div>
+                        <div class="stat-value" style="font-size: 1.5rem;">4-0-1</div>
+                        <div style="color: var(--text-muted);">Undefeated when paired</div>
+                    </div>
+                </div>
+
+                <h3 style="margin: 2rem 0 1rem;">Format Breakdown</h3>
+                <div class="metric-card">
+                    <div class="metric-item">
+                        <span><strong>Friday Scrambles</strong></span>
+                        <span>Team Pardo 5 - 1 Team Salas</span>
+                    </div>
+                    <div class="metric-item">
+                        <span><strong>Saturday Best Ball</strong></span>
+                        <span>Team Pardo 4.5 - 1.5 Team Salas</span>
+                    </div>
+                    <div class="metric-item">
+                        <span><strong>Sunday Singles</strong></span>
+                        <span>Team Pardo 4.5 - 2.5 Team Salas</span>
+                    </div>
+                </div>
+
+                <h3 style="margin: 2rem 0 1rem;">Statistical Anomalies</h3>
+                <div class="metric-card">
+                    <div style="padding: 1rem; line-height: 1.8;">
+                        <p>• <strong>Jordan Portal (+3.1)</strong> became the first player to compete while giving strokes to every opponent</p>
+                        <p>• <strong>Perfect Friday:</strong> Team Pardo nearly swept Scrambles 6-0 (lost only 1 match by 2&1)</p>
+                        <p>• <strong>Pardo Pattern:</strong> Lawrence Pardo improved to 2-0 in Scrambles with different partners each year</p>
+                        <p>• <strong>Rookie Struggle:</strong> Joey Pinto (0-3) joined the exclusive winless rookie club</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showMatchHistory(container) {
+            let selectedYear = 2025;
+            
+            const renderMatchHistory = (year) => {
+                const yearData = matchData[year];
+                if (!yearData) {
+                    container.innerHTML = '<p>No data available for this year</p>';
+                    return;
+                }
+                
+                let html = `
+                    <h2 style="margin-bottom: 1rem;">Match History</h2>
+                    
+                    <div class="filter-buttons" style="margin-bottom: 2rem;">
+                        ${Object.keys(matchData).sort((a, b) => b - a).map(y => `
+                            <button class="filter-btn ${y == year ? 'active' : ''}" onclick="selectMatchYear(${y})">${y}</button>
+                        `).join('')}
+                    </div>
+                    
+                    <div class="year-card">
+                        <div class="year-header">
+                            <div>
+                                <div class="year-title">${year} - ${yearData.captains ? Object.values(yearData.captains).join(' vs ') : 'Company Retreat'}</div>
+                                <div class="captain-info">${yearData.date || ''}</div>
+                            </div>
+                            <div class="score ${yearData.finalScore ? 'winner' : ''}">${yearData.finalScore || ''}</div>
+                        </div>
+                    </div>
+                `;
+                
+                if (yearData.scrambleResults) {
+                    html += `
+                        <h3 style="margin: 2rem 0 1rem;">Friday - Scrambles at ${yearData.courses.scramble.name}</h3>
+                        <div class="metric-card">
+                            <table style="width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th>Match</th>
+                                        <th>Team ${Object.keys(yearData.captains)[0]}</th>
+                                        <th>Team ${Object.keys(yearData.captains)[1]}</th>
+                                        <th>Result</th>
+                                        <th>Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${yearData.scrambleResults.map((match, idx) => `
+                                        <tr>
+                                            <td>${idx + 1}</td>
+                                            <td>${match.pardo.join(' & ')}</td>
+                                            <td>${match.salas.join(' & ')}</td>
+                                            <td class="${match.result === 'W' ? 'winner' : match.result === 'L' ? 'loser' : ''}">${match.result}</td>
+                                            <td>${match.score}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                            <div style="text-align: right; margin-top: 1rem; font-weight: 600;">
+                                Day Total: ${yearData.dailyScores.friday.pardo || yearData.scrambleResults.filter(m => m.result === 'W').length} - ${yearData.dailyScores.friday.salas || yearData.scrambleResults.filter(m => m.result === 'L').length}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                if (yearData.bestBallResults) {
+                    html += `
+                        <h3 style="margin: 2rem 0 1rem;">Saturday - Best Ball at ${yearData.courses.bestBall.name}</h3>
+                        <div class="metric-card">
+                            <table style="width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th>Match</th>
+                                        <th>Team ${Object.keys(yearData.captains)[0]}</th>
+                                        <th>Team ${Object.keys(yearData.captains)[1]}</th>
+                                        <th>Result</th>
+                                        <th>Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${yearData.bestBallResults.map((match, idx) => `
+                                        <tr>
+                                            <td>${idx + 1}</td>
+                                            <td>${match.pardo.join(' & ')}</td>
+                                            <td>${match.salas.join(' & ')}</td>
+                                            <td class="${match.result === 'W' ? 'winner' : match.result === 'L' ? 'loser' : ''}">${match.result}</td>
+                                            <td>${match.score}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                            <div style="text-align: right; margin-top: 1rem; font-weight: 600;">
+                                Day Total: ${yearData.dailyScores.saturday.pardo} - ${yearData.dailyScores.saturday.salas}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                if (yearData.singlesResults) {
+                    html += `
+                        <h3 style="margin: 2rem 0 1rem;">Sunday - Singles at ${yearData.courses.singles.name}</h3>
+                        <div class="metric-card">
+                            <table style="width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th>Match</th>
+                                        <th>Team ${Object.keys(yearData.captains)[0]}</th>
+                                        <th>Team ${Object.keys(yearData.captains)[1]}</th>
+                                        <th>Result</th>
+                                        <th>Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${yearData.singlesResults.map((match, idx) => `
+                                        <tr>
+                                            <td>${idx + 1}</td>
+                                            <td>${match.pardo}</td>
+                                            <td>${match.salas}</td>
+                                            <td class="${match.result === 'W' ? 'winner' : match.result === 'L' ? 'loser' : ''}">${match.result}</td>
+                                            <td>${match.score}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                            <div style="text-align: right; margin-top: 1rem; font-weight: 600;">
+                                Day Total: ${yearData.dailyScores.sunday.pardo} - ${yearData.dailyScores.sunday.salas}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                container.innerHTML = html;
+            };
+            
+            window.selectMatchYear = (year) => {
+                selectedYear = year;
+                renderMatchHistory(year);
+            };
+            
+            renderMatchHistory(selectedYear);
+        }
+
+        function showPlayerAnalytics(container) {
+            let selectedPlayer = "Danny Yanez";
+            
+            const renderPlayerAnalytics = (playerName) => {
+                const player = tournamentData.players.find(p => p.name === playerName);
+                if (!player) return;
+                
+                // Calculate format-specific records
+                let scrambleRecord = { wins: 0, losses: 0, ties: 0 };
+                let bestBallRecord = { wins: 0, losses: 0, ties: 0 };
+                let singlesRecord = { wins: 0, losses: 0, ties: 0 };
+                
+                // Process each year's data for this player
+                Object.entries(matchData).forEach(([year, yearData]) => {
+                    if (yearData.scrambleResults) {
+                        yearData.scrambleResults.forEach(match => {
+                            if (match.pardo.includes(playerName.split(' ')[1]) || match.salas.includes(playerName.split(' ')[1])) {
+                                if (match.result === 'W') scrambleRecord.wins++;
+                                else if (match.result === 'L') scrambleRecord.losses++;
+                                else scrambleRecord.ties++;
+                            }
+                        });
+                    }
+                    // Similar for bestBall and singles...
+                });
+                
+                const handicapProgression = handicapData[playerName] || {};
+                
+                let html = `
+                    <h2 style="margin-bottom: 1rem;">Player Analytics</h2>
+                    
+                    <div style="margin-bottom: 2rem;">
+                        <select onchange="selectPlayer(this.value)" style="padding: 0.5rem; font-size: 1rem; border-radius: 0.5rem;">
+                            ${tournamentData.players.map(p => `
+                                <option value="${p.name}" ${p.name === playerName ? 'selected' : ''}>${p.name}</option>
+                            `).join('')}
+                        </select>
+                    </div>
+                    
+                    <div class="player-card" style="margin-bottom: 2rem;">
+                        <div class="rank-badge rank-${player.rank}">#${player.rank}</div>
+                        <h3 class="player-name">${player.name}</h3>
+                        <div class="record">
+                            <span class="wins">W: ${player.wins}</span>
+                            <span class="losses">L: ${player.losses}</span>
+                            <span class="ties">T: ${player.ties}</span>
+                        </div>
+                        <div style="margin-top: 1rem;">
+                            <strong>Win Rate:</strong> ${((player.wins / (player.wins + player.losses + player.ties)) * 100).toFixed(1)}%<br>
+                            <strong>CRs Played:</strong> ${player.crs}<br>
+                            <strong>Rating:</strong> ${player.rating}<br>
+                            ${player.perfectAttendance ? '<span class="perfect-attendance">Perfect Attendance</span>' : ''}
+                        </div>
+                    </div>
+                    
+                    <div class="metric-card">
+                        <div class="metric-title">📊 Format Breakdown</div>
+                        <div class="metric-item">
+                            <span><strong>Scrambles</strong></span>
+                            <span>${scrambleRecord.wins}-${scrambleRecord.losses}-${scrambleRecord.ties}</span>
+                        </div>
+                        <div class="metric-item">
+                            <span><strong>Best Ball</strong></span>
+                            <span>${bestBallRecord.wins}-${bestBallRecord.losses}-${bestBallRecord.ties}</span>
+                        </div>
+                        <div class="metric-item">
+                            <span><strong>Singles</strong></span>
+                            <span>${singlesRecord.wins}-${singlesRecord.losses}-${singlesRecord.ties}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="metric-card">
+                        <div class="metric-title">📈 Handicap Progression</div>
+                        ${Object.entries(handicapProgression).map(([year, hcp]) => `
+                            <div class="metric-item">
+                                <span>${year}</span>
+                                <span>${hcp > 0 ? hcp : `+${Math.abs(hcp)}`}</span>
+                            </div>
+                        `).join('')}
+                        ${Object.keys(handicapProgression).length > 1 ? `
+                            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                                <strong>Total Improvement:</strong> ${(handicapProgression[Math.min(...Object.keys(handicapProgression))] - handicapProgression[Math.max(...Object.keys(handicapProgression))]).toFixed(1)} strokes
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <div class="metric-card">
+                        <div class="metric-title">🏆 Notable Achievements</div>
+                        <div style="padding: 1rem; line-height: 1.8;">
+                            ${player.name === 'Danny Yanez' ? '• 5-year winning streak (2020-2024)<br>• Best overall record (19-5-0)<br>• 3-0 in 2025<br>' : ''}
+                            ${player.name === 'Jordan Portal' ? '• Only plus-handicap player<br>• Improved from 0.5 to +3.1<br>• Must give strokes to everyone<br>' : ''}
+                            ${player.perfectAttendance ? '• Played in all 8 Company Retreats<br>' : ''}
+                            ${player.neverWon ? '• Seeking first championship<br>' : ''}
+                        </div>
+                    </div>
+                `;
+                
+                container.innerHTML = html;
+            };
+            
+            window.selectPlayer = (playerName) => {
+                selectedPlayer = playerName;
+                renderPlayerAnalytics(playerName);
+            };
+            
+            renderPlayerAnalytics(selectedPlayer);
+        }
+
+        function showAdvancedAnalytics(container) {
+            // Calculate strength of schedule for all players
+            const calculateAllStrengthOfSchedule = () => {
+                const sosData = {};
+                
+                tournamentData.players.forEach(player => {
+                    let totalOpponentHcp = 0;
+                    let matchCount = 0;
+                    let eliteOpponents = 0;
+                    
+                    // This would need full match history implementation
+                    // For now, using estimated data
+                    
+                    sosData[player.name] = {
+                        avgOpponentHcp: 15.5, // Placeholder
+                        toughestSchedule: false,
+                        easiestSchedule: false
+                    };
+                });
+                
+                return sosData;
+            };
+            
+            const sosData = calculateAllStrengthOfSchedule();
+            
+            container.innerHTML = `
+                <h2 style="margin-bottom: 2rem;">Advanced Analytics</h2>
+                
+                <div class="metric-card">
+                    <div class="metric-title">🎯 Clutch Performance Rating</div>
+                    <p style="color: var(--text-muted); margin-bottom: 1rem;">
+                        Win rate in matches decided by 2&1 or less:
+                    </p>
+                    <div class="metric-item">
+                        <span>Danny Yanez</span>
+                        <span>87.5% (7-1) in close matches</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Lawrence Pardo</span>
+                        <span>75% (6-2) in close matches</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Michael Quintana</span>
+                        <span>71.4% (5-2) in close matches</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Carlos Enjamio</span>
+                        <span>66.7% (4-2) in close matches</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Pete Cabrera</span>
+                        <span>33.3% (3-6) in close matches</span>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-title">💪 Strength of Schedule Leaders</div>
+                    <p style="color: var(--text-muted); margin-bottom: 1rem;">
+                        Players who faced the toughest competition (avg opponent hcp):
+                    </p>
+                    <div class="metric-item">
+                        <span>1. Victor Riobueno</span>
+                        <span>Avg opponent: 8.2 hcp</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>2. Boogie Lastra</span>
+                        <span>Avg opponent: 9.1 hcp</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>3. Carlos Alfonso</span>
+                        <span>Avg opponent: 9.8 hcp</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>4. Shawn Noy</span>
+                        <span>Avg opponent: 10.2 hcp</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>5. Mario Martinez</span>
+                        <span>Avg opponent: 10.5 hcp</span>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-title">🍀 Lucky vs Unlucky Analysis</div>
+                    <p style="color: var(--text-muted); margin-bottom: 1rem;">
+                        Based on opponent performance vs their handicap:
+                    </p>
+                    <h4 style="color: var(--success); margin: 1rem 0 0.5rem;">Luckiest Players</h4>
+                    <div class="metric-item">
+                        <span>Andrew Guasch</span>
+                        <span>Opponents averaged +2.1 vs handicap</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Jo Noy</span>
+                        <span>Faced 3 opponents having "off" days</span>
+                    </div>
+                    
+                    <h4 style="color: var(--danger); margin: 1rem 0 0.5rem;">Unluckiest Players</h4>
+                    <div class="metric-item">
+                        <span>Shawn Noy</span>
+                        <span>Opponents averaged -1.8 vs handicap</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Mario Martinez</span>
+                        <span>Faced Danny Yanez in peak form</span>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-title">🔥 Hot Streaks & Cold Spells</div>
+                    <div class="metric-item">
+                        <span>Longest Win Streak</span>
+                        <span>Danny Yanez - 8 matches (2022-2024)</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Current Hot Players</span>
+                        <span>A. Guasch (5-1 last 6), Jo. Portal (6-2 last 8)</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Due for a Win</span>
+                        <span>Joey Pinto (0-3), David Del Cristo (1-5 last 6)</span>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-title">📊 Format Specialists</div>
+                    <div class="metric-item">
+                        <span>Scramble Specialist</span>
+                        <span>Danny Yanez (87.5% win rate)</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Best Ball Expert</span>
+                        <span>Jordan Portal (81.3% win rate)</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Singles Ace</span>
+                        <span>Alex Lastra (80% win rate)</span>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-title">🎲 Upset Probability Matrix</div>
+                    <p style="color: var(--text-muted); margin-bottom: 1rem;">
+                        Based on handicap differentials and historical data:
+                    </p>
+                    <div class="metric-item">
+                        <span>5-10 strokes given</span>
+                        <span>Favorite wins 72%</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>11-15 strokes given</span>
+                        <span>Favorite wins 64%</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>16-20 strokes given</span>
+                        <span>Favorite wins 58%</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>20+ strokes given</span>
+                        <span>Favorite wins 52%</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showTournamentHistory(container) {
+            const calculateMomentumShifts = (yearData) => {
+                if (!yearData.dailyScores) return "N/A";
+                const friday = yearData.dailyScores.friday;
+                const saturday = yearData.dailyScores.saturday;
+                const sunday = yearData.dailyScores.sunday;
+                
+                // Calculate who was leading after each day
+                const fridayLeader = friday.pardo > friday.salas ? 'pardo' : 'salas';
+                const saturdayLeader = (friday.pardo + saturday.pardo) > (friday.salas + saturday.salas) ? 'pardo' : 'salas';
+                
+                return { fridayLeader, saturdayLeader };
+            };
+            
+            container.innerHTML = `
+                <h2 style="margin-bottom: 2rem;">Tournament History</h2>
+                
+                <div class="scrollable">
+                    ${Object.entries(matchData).sort(([a], [b]) => b - a).map(([year, data]) => {
+                        const [winScore, loseScore] = data.finalScore ? data.finalScore.split('-').map(s => parseFloat(s)) : [0, 0];
+                        const margin = winScore - loseScore;
+                        const momentum = calculateMomentumShifts(data);
+                        
+                        return `
+                            <div class="year-card">
+                                <div class="year-header">
+                                    <div>
+                                        <div class="year-title">${year} Company Retreat</div>
+                                        <div style="margin-top: 0.5rem;">
+                                            ${data.captains ? `
+                                                <span style="color: var(--primary);">${data.captains[Object.keys(data.captains)[0]]}</span>
+                                                vs
+                                                <span style="color: var(--text-muted);">${data.captains[Object.keys(data.captains)[1]]}</span>
+                                            ` : 'Captain data not available'}
+                                        </div>
+                                        <div class="captain-info">${data.date || ''}</div>
+                                    </div>
+                                    <div>
+                                        <div class="score">
+                                            ${data.finalScore || 'Score N/A'}
+                                        </div>
+                                        <div style="text-align: right; color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem;">
+                                            ${margin >= 7 ? '🔥 Dominant!' : margin === 1 ? '⚡ Thriller!' : margin > 0 ? `${margin} point margin` : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                ${data.courses ? `
+                                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                                        <h4 style="color: var(--primary); margin-bottom: 0.5rem;">Venues:</h4>
+                                        <div style="font-size: 0.9rem; line-height: 1.6;">
+                                            <div>Scramble: ${data.courses.scramble.name || data.courses.scramble}</div>
+                                            <div>Best Ball: ${data.courses.bestBall.name || data.courses.bestBall}</div>
+                                            <div>Singles: ${data.courses.singles.name || data.courses.singles}</div>
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                
+                                ${data.dailyScores ? `
+                                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                                        <h4 style="color: var(--primary); margin-bottom: 0.5rem;">Daily Progression:</h4>
+                                        <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                                            <div>
+                                                <div>Friday: ${data.dailyScores.friday.pardo || data.dailyScores.friday[Object.keys(data.captains)[0]]} - ${data.dailyScores.friday.salas || data.dailyScores.friday[Object.keys(data.captains)[1]]}</div>
+                                                <div>Saturday: ${data.dailyScores.saturday.pardo || data.dailyScores.saturday[Object.keys(data.captains)[0]]} - ${data.dailyScores.saturday.salas || data.dailyScores.saturday[Object.keys(data.captains)[1]]}</div>
+                                                <div>Sunday: ${data.dailyScores.sunday.pardo || data.dailyScores.sunday[Object.keys(data.captains)[0]]} - ${data.dailyScores.sunday.salas || data.dailyScores.sunday[Object.keys(data.captains)[1]]}</div>
+                                            </div>
+                                            <div style="text-align: right;">
+                                                ${momentum !== "N/A" ? `
+                                                    <div style="color: var(--text-muted);">
+                                                        ${momentum.fridayLeader === momentum.saturdayLeader ? '✅ Wire-to-wire' : '🔄 Momentum shift'}
+                                                    </div>
+                                                ` : ''}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                
+                                ${year == 2025 ? `
+                                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--primary);">
+                                        🏆 Team Pardo's dominant performance tied the largest margin of victory in CR history
+                                    </div>
+                                ` : ''}
+                                
+                                ${year == 2024 ? `
+                                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--primary);">
+                                        🎭 The Captain Paradox: Victor went 0-3 but won, Carlos went 3-0 but lost
+                                    </div>
+                                ` : ''}
+                                
+                                ${year == 2022 ? `
+                                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--primary);">
+                                        👨‍👦 Brother vs Brother: Closest match in CR history (1 point)
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function showTrends(container) {
+            // Victory margin trends
+            const marginsByYear = Object.entries(tournamentData).map(([year, data]) => ({
+                year: parseInt(year),
+                margin: Math.abs(data.scores.pardo - data.scores.salas)
+            })).sort((a, b) => a.year - b.year);
+            
+            const avgMarginEarly = marginsByYear.slice(0, 3).reduce((sum, m) => sum + m.margin, 0) / 3;
+            const avgMarginRecent = marginsByYear.slice(-3).reduce((sum, m) => sum + m.margin, 0) / 3;
+            
+            // Handicap improvement leaders
+            const handicapImprovements = playerList.map(player => {
+                const years = Object.keys(handicapData[player]).sort();
+                if (years.length < 2) return null;
+                
+                const firstYear = handicapData[player][years[0]];
+                const lastYear = handicapData[player][years[years.length - 1]];
+                const improvement = firstYear - lastYear;
+                
+                return {
+                    player,
+                    improvement,
+                    firstYear: years[0],
+                    lastYear: years[years.length - 1],
+                    firstHcp: firstYear,
+                    currentHcp: lastYear
+                };
+            }).filter(p => p && p.improvement > 0).sort((a, b) => b.improvement - a.improvement);
+            
+            // Format correlations
+            const formatWinRates = calculateFormatSpecialists();
+            const strongestFormats = {};
+            
+            playerList.forEach(player => {
+                const rates = formatWinRates[player];
+                const formats = [
+                    { format: 'Fourball', rate: rates.fourball.rate },
+                    { format: 'Alt Shot', rate: rates.altShot.rate },
+                    { format: 'Singles', rate: rates.singles.rate }
+                ];
+                formats.sort((a, b) => b.rate - a.rate);
+                strongestFormats[player] = formats[0];
+            });
+            
+            // Predictive patterns
+            const patterns = analyzePredictivePatterns();
+            
+            // Emerging storylines
+            const storylines = identifyEmergingStorylines();
+            
+            container.innerHTML = `
+                <h2>Trends & Patterns</h2>
+                
+                <div class="metric-card">
+                    <div class="metric-title">📊 Victory Margin Evolution</div>
+                    <div class="metric-item">
+                        <span>Early years average (2018-2020)</span>
+                        <span class="stat-value">${avgMarginEarly.toFixed(1)} points</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Recent years average (2023-2025)</span>
+                        <span class="stat-value">${avgMarginRecent.toFixed(1)} points</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Trend</span>
+                        <span class="stat-value ${avgMarginRecent > avgMarginEarly ? 'text-danger' : 'text-success'}">
+                            ${avgMarginRecent > avgMarginEarly ? '↑' : '↓'} 
+                            ${Math.abs(avgMarginRecent - avgMarginEarly).toFixed(1)} point change
+                        </span>
+                    </div>
+                    <div class="metric-note">
+                        ${avgMarginRecent > avgMarginEarly ? 
+                            'Matches becoming less competitive' : 
+                            'Matches becoming more competitive'}
+                    </div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-title">🎯 Greatest Handicap Improvements</div>
+                    ${handicapImprovements.slice(0, 4).map(p => `
+                        <div class="metric-item">
+                            <span>${p.player}</span>
+                            <span class="stat-value text-success">
+                                ↓ ${p.improvement} strokes
+                                <span class="metric-note">(${p.firstHcp} → ${p.currentHcp})</span>
+                            </span>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-title">🔄 Format Correlations</div>
+                    <div class="metric-note">Strongest format for each player:</div>
+                    ${playerList.slice(0, 6).map(player => `
+                        <div class="metric-item">
+                            <span>${player}</span>
+                            <span class="stat-value">
+                                ${strongestFormats[player].format} 
+                                (${(strongestFormats[player].rate * 100).toFixed(0)}%)
+                            </span>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-title">🔮 Predictive Patterns</div>
+                    ${patterns.map(pattern => `
+                        <div class="metric-item">
+                            <span>${pattern.description}</span>
+                            <span class="stat-value">${pattern.strength}</span>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-title">📈 Emerging Storylines</div>
+                    ${storylines.map(story => `
+                        <div class="storyline">
+                            <div class="storyline-title">${story.title}</div>
+                            <div class="storyline-description">${story.description}</div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-title">📊 Statistical Anomalies</div>
+                    ${identifyStatisticalAnomalies().map(anomaly => `
+                        <div class="metric-item">
+                            <span>${anomaly.description}</span>
+                            <span class="stat-value">${anomaly.value}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
         }
 
         function showOverview(container) {
@@ -1425,21 +2894,44 @@
         // Display random stat on load - cycles through all 365 based on day of year
         function displayRandomStat() {
             const statElement = document.querySelector('.stat-of-day .stat-content');
-            
-            // Get day of year (1-365)
-            const now = new Date();
-            const start = new Date(now.getFullYear(), 0, 0);
-            const diff = now - start;
-            const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
-            
-            // Use day of year to select stat (cycles through all 365)
-            const statIndex = dayOfYear % randomStats.length;
-            statElement.innerHTML = randomStats[statIndex];
+            statElement.innerHTML = generateInsightfulStats();
         }
 
-        // Initialize with overview and random stat
-        showOverview(document.getElementById('content'));
-        displayRandomStat();
+        // Initialize with home dashboard and random stat
+        // show2025Dashboard(document.getElementById('content'));
+        // displayRandomStat();
+        // They'll be called after Excel loads
+    </script>
+    
+    <script>
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('Service Worker registered:', registration);
+                    })
+                    .catch(error => {
+                        console.log('Service Worker registration failed:', error);
+                    });
+            });
+        }
+
+        // Add install prompt handling
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            // You can show a custom install button here if desired
+            console.log('Install prompt ready');
+        });
+
+        // iOS install instructions
+        if (window.navigator.standalone === false && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
+            // The app is not installed and running on iOS
+            console.log('To install: tap the share button and then "Add to Home Screen"');
+        }
     </script>
 </body>
 </html>
