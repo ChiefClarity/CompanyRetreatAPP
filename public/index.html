@@ -670,6 +670,13 @@
         // Initialize empty data structures
         let matchData = {};
         let handicapData = {};
+        
+        // Initialize handicapData with fallback values
+        function initializeHandicapData() {
+            if (Object.keys(handicapData).length === 0) {
+                handicapData = { ...handicapDataFallback };
+            }
+        }
         let tournamentData = {
             players: [],
             captainHistory: []
@@ -694,18 +701,35 @@
                 if (playersSheet) {
                     const playersData = XLSX.utils.sheet_to_json(playersSheet);
                     
-                    // Update tournament data with player stats
-                    tournamentData.players = playersData.map((player, idx) => ({
-                        rank: player.Rank || idx + 1,
-                        name: player.Player,
-                        crs: player.CRs || 0,
-                        wins: player.W || 0,
-                        losses: player.L || 0,
-                        ties: player.T || 0,
-                        rating: player.Rating || 0,
-                        perfectAttendance: player.CRs === 8,
-                        neverWon: false // Will be calculated from match data
-                    })).filter(p => p.name); // Filter out empty rows
+                    tournamentData.players = playersData.map((player, idx) => {
+                        // Calculate total W-L-T from format-specific records
+                        const scrambleW = player['Scramble W'] || 0;
+                        const scrambleL = player['Scramble L'] || 0;
+                        const scrambleT = player['Scramble T'] || 0;
+                        const bestBallW = player['Best Ball W'] || 0;
+                        const bestBallL = player['Best Ball L'] || 0;
+                        const bestBallT = player['Best Ball T'] || 0;
+                        const singlesW = player['Singles W'] || 0;
+                        const singlesL = player['Singles L'] || 0;
+                        const singlesT = player['Singles T'] || 0;
+                        
+                        return {
+                            rank: idx + 1,
+                            name: player.Player,
+                            crs: player.CRs || 0,
+                            wins: player.W || (scrambleW + bestBallW + singlesW),
+                            losses: player.L || (scrambleL + bestBallL + singlesL),
+                            ties: player.T || (scrambleT + bestBallT + singlesT),
+                            avgScore: player['Avg Score'] || 0,
+                            avgNetScore: player['Avg Net Score'] || 0,
+                            netHolesWon: player['Net Holes Won'] || 0,
+                            rating: player.Rating || 0,
+                            perfectAttendance: player.CRs === 8,
+                            scrambleRecord: { W: scrambleW, L: scrambleL, T: scrambleT },
+                            bestBallRecord: { W: bestBallW, L: bestBallL, T: bestBallT },
+                            singlesRecord: { W: singlesW, L: singlesL, T: singlesT }
+                        };
+                    }).filter(p => p.name); // Filter out empty rows
                 }
                 
                 // Process each year's data
@@ -753,6 +777,11 @@
                 
                 console.log('Excel data loaded successfully');
                 console.log('Total players found:', playerList.length);
+                console.log('Player list:', playerList);
+                console.log('Match data keys:', Object.keys(matchData));
+                
+                // Initialize handicap data with fallback if needed
+                initializeHandicapData();
                 
                 // Initialize the app with the loaded data
                 showTab('2025');
@@ -766,165 +795,207 @@
         }
 
         function processYearData(year, yearData) {
+            console.log(`Processing year ${year}, data rows:`, yearData.length);
             const result = {
                 date: getYearDate(year),
                 courses: getYearCourses(year),
-                captains: getYearCaptains(year),
-                finalScore: getYearScore(year),
+                captains: {},
+                finalScore: '',
                 scrambleResults: [],
                 bestBallResults: [],
                 singlesResults: [],
                 teamData: {},
-                dailyScores: { friday: {}, saturday: {}, sunday: {} },
-                matches: [] // Add matches array for compatibility
+                dailyScores: { friday: {}, saturday: {}, sunday: {} }
             };
             
-            // Group players by team
+            // Extract captain info - Row 28 for most years, Row 31 for 2024
+            const captainRow = year === '2024' ? 30 : 27; // 0-indexed
+            if (yearData[captainRow] && yearData[captainRow + 1]) {
+                const captain1Name = yearData[captainRow]['Player'];
+                const captain1Score = yearData[captainRow]['Team'];
+                const captain2Name = yearData[captainRow + 1]['Player'];
+                const captain2Score = yearData[captainRow + 1]['Team'];
+                
+                if (captain1Name && captain2Name) {
+                    result.captains = { 
+                        [captain1Name.toLowerCase().split(' ')[0]]: captain1Name,
+                        [captain2Name.toLowerCase().split(' ')[0]]: captain2Name
+                    };
+                    result.finalScore = `${captain1Score}-${captain2Score}`;
+                }
+            }
+            
+            // If captains not found from data, use hardcoded values
+            if (Object.keys(result.captains).length === 0) {
+                result.captains = getYearCaptains(year);
+                result.finalScore = getYearScore(year);
+            }
+            
+            // Group players by team using Team column - only include rows before captain row
             const teams = {};
-            yearData.forEach(player => {
-                if (player.Team && player.Player) {
-                    if (!teams[player.Team]) teams[player.Team] = [];
-                    teams[player.Team].push(player.Player);
+            const seenPlayers = new Set();
+            yearData.forEach((row, idx) => {
+                if (idx < captainRow && row.Player && row.Team) {
+                    // Avoid duplicate players
+                    if (!seenPlayers.has(row.Player)) {
+                        seenPlayers.add(row.Player);
+                        if (!teams[row.Team]) teams[row.Team] = [];
+                        teams[row.Team].push(row.Player);
+                    }
                 }
             });
             result.teamData = teams;
+            console.log(`Year ${year} teams:`, teams);
+            console.log(`Year ${year} player count:`, seenPlayers.size);
             
-            // Extract Scramble matches (avoiding duplicates)
-            const scramblePairs = new Map();
-            yearData.forEach(player => {
-                if (player.Player && player.Scramble && player.Team) {
-                    const pair = [player.Player, player.Scramble].sort().join('|');
-                    if (!scramblePairs.has(pair)) {
-                        scramblePairs.set(pair, {
-                            players: [player.Player, player.Scramble],
-                            team: player.Team,
-                            result: player.Result || '',
-                            score: formatScore(player['Up/Dn'], player.Left)
+            // Parse Scramble matches 
+            const scrambleMatches = [];
+            const processedScramblePairs = new Set();
+            
+            yearData.forEach((row, idx) => {
+                if (row.Player && row.Scramble && row.Team && row.Result) {
+                    const pairKey = [row.Player, row.Scramble].sort().join('|');
+                    
+                    if (!processedScramblePairs.has(pairKey)) {
+                        processedScramblePairs.add(pairKey);
+                        
+                        // Find the opposing pair
+                        const opposingPair = yearData.find(oppRow => 
+                            oppRow.Player && oppRow.Scramble && 
+                            oppRow.Team !== row.Team &&
+                            (oppRow.Result === (row.Result === 'W' ? 'L' : row.Result === 'L' ? 'W' : 'T'))
+                        );
+                        
+                        if (opposingPair) {
+                            const teamNames = Object.keys(result.captains);
+                            const team1 = teamNames[0];
+                            const team2 = teamNames[1];
+                            
+                            scrambleMatches.push({
+                                match: scrambleMatches.length + 1,
+                                [team1]: row.Team === Object.keys(teams)[0] ? [row.Player, row.Scramble] : [opposingPair.Player, opposingPair.Scramble],
+                                [team2]: row.Team === Object.keys(teams)[0] ? [opposingPair.Player, opposingPair.Scramble] : [row.Player, row.Scramble],
+                                result: row.Team === Object.keys(teams)[0] ? row.Result : opposingPair.Result,
+                                score: formatMatchScore(row['Up/Dn'], row.Left),
+                                winner: row.Result === 'W' ? (row.Team === Object.keys(teams)[0] ? team1 : team2) : 
+                                       row.Result === 'L' ? (row.Team === Object.keys(teams)[0] ? team2 : team1) : ''
+                            });
+                        }
+                    }
+                }
+            });
+            result.scrambleResults = scrambleMatches;
+            
+            // Parse Best Ball matches
+            const bestBallMatches = [];
+            const processedBestBallPairs = new Set();
+            
+            yearData.forEach((row, idx) => {
+                const bestBallCol = row['Best Ball'] || row['BestBall'];
+                const resultCol = row['Result.1'] || row['Result_1'] || row['BB Result'];
+                const upDownCol = row['Up/Dn.1'] || row['Up/Dn_1'] || row['BB Up/Dn'];
+                const leftCol = row['Left.1'] || row['Left_1'] || row['BB Left'];
+                
+                if (row.Player && bestBallCol && row.Team && resultCol) {
+                    const pairKey = [row.Player, bestBallCol].sort().join('|');
+                    
+                    if (!processedBestBallPairs.has(pairKey)) {
+                        processedBestBallPairs.add(pairKey);
+                        
+                        const teamNames = Object.keys(result.captains);
+                        const team1 = teamNames[0];
+                        const team2 = teamNames[1];
+                        
+                        bestBallMatches.push({
+                            match: bestBallMatches.length + 1,
+                            [team1]: row.Team === Object.keys(teams)[0] ? [row.Player, bestBallCol] : [],
+                            [team2]: row.Team === Object.keys(teams)[1] ? [row.Player, bestBallCol] : [],
+                            result: resultCol,
+                            score: formatMatchScore(upDownCol, leftCol),
+                            winner: resultCol === 'W' ? (row.Team === Object.keys(teams)[0] ? team1 : team2) : 
+                                   resultCol === 'L' ? (row.Team === Object.keys(teams)[0] ? team2 : team1) : ''
                         });
                     }
                 }
             });
+            result.bestBallResults = bestBallMatches;
             
-            // Convert scramble pairs to match format
-            const scrambleArray = Array.from(scramblePairs.values());
-            const teamNames = Object.keys(teams);
+            // Parse Singles matches
+            const singlesMatches = [];
+            const processedSinglesMatches = new Set();
             
-            // Group by actual matches (need to pair up opposing teams)
-            // Find unique matches by pairing teams
-            const processedMatches = new Set();
-            scrambleArray.forEach(match1 => {
-                const key = match1.players.sort().join('|');
-                if (!processedMatches.has(key) && match1.result) {
-                    processedMatches.add(key);
-                    const isTeam1 = match1.team === teamNames[0];
-                    result.scrambleResults.push({
-                        match: result.scrambleResults.length + 1,
-                        pardo: isTeam1 ? match1.players : [],
-                        salas: isTeam1 ? [] : match1.players,
-                        result: match1.result,
-                        score: match1.score,
-                        winner: match1.result === 'W' ? (isTeam1 ? 'pardo' : 'salas') : ''
-                    });
-                }
-            });
-            
-            // Extract Best Ball matches (similar logic)
-            const bestBallPairs = new Map();
-            yearData.forEach(player => {
-                if (player.Player && player['Best Ball'] && player.Team) {
-                    const pair = [player.Player, player['Best Ball']].sort().join('|');
-                    if (!bestBallPairs.has(pair)) {
-                        bestBallPairs.set(pair, {
-                            players: [player.Player, player['Best Ball']],
-                            team: player.Team,
-                            result: player.Result_1 || player['Result.1'] || '',
-                            score: formatScore(player['Up/Dn_1'] || player['Up/Dn.1'], player.Left_1 || player['Left.1'])
+            yearData.forEach((row, idx) => {
+                const singlesCol = row['Singles vs'] || row['Singles'] || row['Singles Vs'];
+                const resultCol = row['Result.2'] || row['Result_2'] || row['Singles Result'];
+                const upDownCol = row['Up/Dn.2'] || row['Up/Dn_2'] || row['Singles Up/Dn'];
+                const leftCol = row['Left.2'] || row['Left_2'] || row['Singles Left'];
+                
+                if (row.Player && singlesCol && row.Team && resultCol) {
+                    const matchKey = [row.Player, singlesCol].sort().join('|');
+                    
+                    if (!processedSinglesMatches.has(matchKey)) {
+                        processedSinglesMatches.add(matchKey);
+                        
+                        const teamNames = Object.keys(result.captains);
+                        const team1 = teamNames[0];
+                        const team2 = teamNames[1];
+                        
+                        singlesMatches.push({
+                            match: singlesMatches.length + 1,
+                            [team1]: row.Team === Object.keys(teams)[0] ? row.Player : singlesCol,
+                            [team2]: row.Team === Object.keys(teams)[1] ? row.Player : singlesCol,
+                            result: resultCol,
+                            score: formatMatchScore(upDownCol, leftCol),
+                            winner: resultCol === 'W' ? (row.Team === Object.keys(teams)[0] ? team1 : team2) : 
+                                   resultCol === 'L' ? (row.Team === Object.keys(teams)[0] ? team2 : team1) : ''
                         });
                     }
                 }
             });
-            
-            // Extract Singles matches
-            const singlesMatches = new Map();
-            yearData.forEach(player => {
-                if (player.Player && player.Singles && player.Team) {
-                    const key = player.Player;
-                    if (!singlesMatches.has(key)) {
-                        singlesMatches.set(key, {
-                            player: player.Player,
-                            team: player.Team,
-                            opponent: player.Singles,
-                            result: player.Result_2 || player['Result.2'] || '',
-                            score: formatScore(player['Up/Dn_2'] || player['Up/Dn.2'], player.Left_2 || player['Left.2'])
-                        });
-                    }
-                }
-            });
-            
-            result.singlesResults = Array.from(singlesMatches.values()).map((match, idx) => ({
-                match: idx + 1,
-                [teamNames[0].toLowerCase()]: match.team === teamNames[0] ? match.player : match.opponent,
-                [teamNames[1].toLowerCase()]: match.team === teamNames[1] ? match.player : match.opponent,
-                result: match.result,
-                score: match.score
-            }));
+            result.singlesResults = singlesMatches;
             
             // Calculate daily scores
             let team1Scramble = 0, team2Scramble = 0;
             let team1BestBall = 0, team2BestBall = 0;
             let team1Singles = 0, team2Singles = 0;
             
-            yearData.forEach(player => {
-                if (player.Team === teamNames[0]) {
-                    if (player.Result === 'W') team1Scramble += 0.5;
-                    if (player.Result === 'T') team1Scramble += 0.25;
-                    if (player.Result_1 === 'W' || player['Result.1'] === 'W') team1BestBall += 0.5;
-                    if (player.Result_1 === 'T' || player['Result.1'] === 'T') team1BestBall += 0.25;
-                    if (player.Result_2 === 'W' || player['Result.2'] === 'W') team1Singles += 1;
-                    if (player.Result_2 === 'T' || player['Result.2'] === 'T') team1Singles += 0.5;
-                } else if (player.Team === teamNames[1]) {
-                    if (player.Result === 'W') team2Scramble += 0.5;
-                    if (player.Result === 'T') team2Scramble += 0.25;
-                    if (player.Result_1 === 'W' || player['Result.1'] === 'W') team2BestBall += 0.5;
-                    if (player.Result_1 === 'T' || player['Result.1'] === 'T') team2BestBall += 0.25;
-                    if (player.Result_2 === 'W' || player['Result.2'] === 'W') team2Singles += 1;
-                    if (player.Result_2 === 'T' || player['Result.2'] === 'T') team2Singles += 0.5;
-                }
+            const teamNames = Object.keys(result.captains);
+            
+            scrambleMatches.forEach(match => {
+                if (match.winner === teamNames[0]) team1Scramble++;
+                else if (match.winner === teamNames[1]) team2Scramble++;
+                else { team1Scramble += 0.5; team2Scramble += 0.5; }
             });
             
-            result.dailyScores.friday[teamNames[0].toLowerCase()] = team1Scramble;
-            result.dailyScores.friday[teamNames[1].toLowerCase()] = team2Scramble;
-            result.dailyScores.saturday[teamNames[0].toLowerCase()] = team1BestBall;
-            result.dailyScores.saturday[teamNames[1].toLowerCase()] = team2BestBall;
-            result.dailyScores.sunday[teamNames[0].toLowerCase()] = team1Singles;
-            result.dailyScores.sunday[teamNames[1].toLowerCase()] = team2Singles;
-            
-            // Create unified matches array for compatibility
-            result.scrambleResults.forEach(match => {
-                result.matches.push({
-                    ...match,
-                    type: 'Scramble',
-                    players: { pardo: match.pardo || [], salas: match.salas || [] }
-                });
+            bestBallMatches.forEach(match => {
+                if (match.winner === teamNames[0]) team1BestBall++;
+                else if (match.winner === teamNames[1]) team2BestBall++;
+                else { team1BestBall += 0.5; team2BestBall += 0.5; }
             });
             
-            result.bestBallResults.forEach(match => {
-                result.matches.push({
-                    ...match,
-                    type: 'Best Ball',
-                    players: { pardo: match.pardo || [], salas: match.salas || [] }
-                });
+            singlesMatches.forEach(match => {
+                if (match.winner === teamNames[0]) team1Singles++;
+                else if (match.winner === teamNames[1]) team2Singles++;
+                else { team1Singles += 0.5; team2Singles += 0.5; }
             });
             
-            result.singlesResults.forEach(match => {
-                result.matches.push({
-                    ...match,
-                    type: 'Singles',
-                    players: { pardo: match.pardo ? [match.pardo] : [], salas: match.salas ? [match.salas] : [] }
-                });
-            });
+            result.dailyScores.friday[teamNames[0]] = team1Scramble;
+            result.dailyScores.friday[teamNames[1]] = team2Scramble;
+            result.dailyScores.saturday[teamNames[0]] = team1BestBall;
+            result.dailyScores.saturday[teamNames[1]] = team2BestBall;
+            result.dailyScores.sunday[teamNames[0]] = team1Singles;
+            result.dailyScores.sunday[teamNames[1]] = team2Singles;
             
             return result;
+        }
+
+        function formatMatchScore(holesWon, holesLeft) {
+            if (holesWon && holesLeft) {
+                return `${Math.abs(holesWon)}&${holesLeft}`;
+            } else if (!holesWon || holesWon == 0) {
+                return 'Halved';
+            }
+            return '';
         }
 
         // Helper functions
@@ -1020,6 +1091,9 @@
             
             // Create a basic playerList
             window.playerList = ["Danny Yanez", "Jordan Portal", "Javi Portal", "Carlos Enjamio", "Victor Riobueno"];
+            
+            // Initialize handicap data with fallback values
+            initializeHandicapData();
             
             // Initialize the app with fallback data
             showTab('2025');
@@ -1174,7 +1248,7 @@
         };
 
         // Complete player handicap progression data (will be loaded from Excel)
-        /* const handicapData = {
+        const handicapDataFallback = {
             "Danny Yanez": { 2018: 16, 2019: 14, 2020: 12, 2021: 10, 2022: 9, 2023: 8.5, 2024: 8, 2025: 8 },
             "Jordan Portal": { 2019: 0.5, 2020: 0, 2021: -0.5, 2022: -1, 2023: -2, 2024: -2.5, 2025: -3.1 },
             "Javi Portal": { 2018: 0, 2019: 0, 2020: 0.5, 2021: 0.5, 2022: 1, 2023: 1, 2024: 1.5, 2025: 1.5 },
@@ -1202,7 +1276,7 @@
             "Joey Pinto": { 2025: 30 },
             "Javi Salas": { 2022: 12, 2023: 11, 2024: 10, 2025: 9.5 },
             "Skippy Ramirez": { 2019: 15, 2020: 14, 2025: 16 }
-        }; */
+        };
 
         // Head-to-head records
         const headToHeadData = {};
@@ -1213,74 +1287,789 @@
             // Implementation would go through each year's results
         }
 
+        // List of captain nicknames to filter out from stats
+        const captainNicknames = ['pardo', 'salas', 'victor', 'carlos', 'stu', 'wes', 'jo', 'shawn', 
+                                  'danny', 'mario', 'vic', 'javi', 'al', 'skip', 'portal', 'pete'];
+
         // Advanced Analytics Functions
-        function calculateStrengthOfSchedule(playerName) {
-            // Calculate average opponent handicap faced
-            let opponentHandicaps = [];
-            let matchesAnalyzed = 0;
+        // Calculate ACTUAL strength of schedule
+        function calculateStrengthOfSchedule() {
+            const sosData = {};
             
-            // Look through all match data to find opponents
-            // This would need full match history implementation
+            Object.entries(matchData).forEach(([year, yearData]) => {
+                // Process singles matches - easiest to track individual opponents
+                yearData.singlesResults?.forEach(match => {
+                    const captains = Object.keys(yearData.captains || {});
+                    const player1 = match[captains[0]];
+                    const player2 = match[captains[1]];
+                    
+                    if (player1 && player2 && player1 !== player2 && 
+                        !captainNicknames.includes(player1.toLowerCase()) && 
+                        !captainNicknames.includes(player2.toLowerCase())) {
+                        // Get actual handicaps for that year
+                        const hcp1 = handicapData[player1]?.[year] || null;
+                        const hcp2 = handicapData[player2]?.[year] || null;
+                        
+                        if (hcp1 !== null && hcp2 !== null) {
+                            // Track opponent handicaps
+                            if (!sosData[player1]) sosData[player1] = { opponents: [], totalHcp: 0, count: 0 };
+                            if (!sosData[player2]) sosData[player2] = { opponents: [], totalHcp: 0, count: 0 };
+                            
+                            sosData[player1].opponents.push({ name: player2, hcp: hcp2, year });
+                            sosData[player1].totalHcp += hcp2;
+                            sosData[player1].count++;
+                            
+                            sosData[player2].opponents.push({ name: player1, hcp: hcp1, year });
+                            sosData[player2].totalHcp += hcp1;
+                            sosData[player2].count++;
+                        }
+                    }
+                });
+            });
             
-            return {
-                avgOpponentHcp: 0,
-                toughestOpponent: "",
-                easiestOpponent: "",
-                matchesVsElite: 0,
-                winRateVsElite: 0
-            };
+            // Calculate averages
+            Object.keys(sosData).forEach(player => {
+                sosData[player].avgOpponentHcp = sosData[player].totalHcp / sosData[player].count;
+                // Find toughest and easiest opponents
+                sosData[player].opponents.sort((a, b) => a.hcp - b.hcp);
+                sosData[player].toughestOpponent = sosData[player].opponents[0];
+                sosData[player].easiestOpponent = sosData[player].opponents[sosData[player].opponents.length - 1];
+            });
+            
+            return sosData;
         }
 
         function calculateClutchRating(playerName) {
-            // Analyze performance in close matches (1 up, 2&1, halved)
-            // Analyze performance when match determines team outcome
+            const clutchData = {
+                closeMatches: { W: 0, L: 0, T: 0 },
+                decisiveMatches: { W: 0, L: 0, T: 0 },
+                sundayMatches: { W: 0, L: 0, T: 0 },
+                comebacks: 0
+            };
+            
+            Object.entries(matchData).forEach(([year, yearData]) => {
+                // Singles matches are best for individual clutch rating
+                yearData.singlesResults?.forEach(match => {
+                    const captains = Object.keys(yearData.captains || {});
+                    const player1 = match[captains[0]];
+                    const player2 = match[captains[1]];
+                    
+                    if (player1 === playerName || player2 === playerName) {
+                        const isPlayer1 = player1 === playerName;
+                        const opponent = isPlayer1 ? player2 : player1;
+                        
+                        // Check if close match (1 up, 2&1, or halved)
+                        const score = match.score?.toLowerCase() || '';
+                        const isClose = score.includes('1 up') || score.includes('2&1') || 
+                                      score.includes('halved') || score.includes('19');
+                        
+                        if (isClose) {
+                            if (match.winner === captains[isPlayer1 ? 0 : 1]) {
+                                clutchData.closeMatches.W++;
+                            } else if (match.winner === captains[isPlayer1 ? 1 : 0]) {
+                                clutchData.closeMatches.L++;
+                            } else {
+                                clutchData.closeMatches.T++;
+                            }
+                        }
+                        
+                        // Check if Sunday match (higher pressure)
+                        if (match.day === 'sunday') {
+                            if (match.winner === captains[isPlayer1 ? 0 : 1]) {
+                                clutchData.sundayMatches.W++;
+                            } else if (match.winner === captains[isPlayer1 ? 1 : 0]) {
+                                clutchData.sundayMatches.L++;
+                            } else {
+                                clutchData.sundayMatches.T++;
+                            }
+                        }
+                    }
+                });
+            });
+            
+            // Calculate clutch rating
+            const closeTotal = clutchData.closeMatches.W + clutchData.closeMatches.L + clutchData.closeMatches.T;
+            const sundayTotal = clutchData.sundayMatches.W + clutchData.sundayMatches.L + clutchData.sundayMatches.T;
+            
+            const closeWinRate = closeTotal > 0 ? (clutchData.closeMatches.W / closeTotal) : 0;
+            const sundayWinRate = sundayTotal > 0 ? (clutchData.sundayMatches.W / sundayTotal) : 0;
+            
             return {
-                closeMatchRecord: "0-0-0",
-                clutchRating: 0,
-                pressureWinRate: 0
+                closeMatchRecord: `${clutchData.closeMatches.W}-${clutchData.closeMatches.L}-${clutchData.closeMatches.T}`,
+                clutchRating: ((closeWinRate * 0.6 + sundayWinRate * 0.4) * 100).toFixed(1),
+                pressureWinRate: sundayWinRate * 100,
+                closeWinRate: closeWinRate * 100
             };
         }
 
-        function findLuckiestPlayers() {
-            // Players who faced opponents playing below their handicap
-            // Players who avoided elite players most often
-            return [];
+        // Calculate team chemistry - which pairings win together
+        function calculateTeamChemistry() {
+            const pairings = {};
+            
+            Object.entries(matchData).forEach(([year, yearData]) => {
+                // Scrambles
+                yearData.scrambleResults?.forEach(match => {
+                    const captains = Object.keys(yearData.captains || {});
+                    const team1Players = match[captains[0]];
+                    const team2Players = match[captains[1]];
+                    
+                    if (team1Players?.length === 2) {
+                        const pairKey = team1Players.sort().join(' & ');
+                        if (!pairings[pairKey]) pairings[pairKey] = { W: 0, L: 0, T: 0, format: 'Scramble' };
+                        
+                        if (match.winner === captains[0]) pairings[pairKey].W++;
+                        else if (match.winner === captains[1]) pairings[pairKey].L++;
+                        else pairings[pairKey].T++;
+                    }
+                    
+                    if (team2Players?.length === 2) {
+                        const pairKey = team2Players.sort().join(' & ');
+                        if (!pairings[pairKey]) pairings[pairKey] = { W: 0, L: 0, T: 0, format: 'Scramble' };
+                        
+                        if (match.winner === captains[1]) pairings[pairKey].W++;
+                        else if (match.winner === captains[0]) pairings[pairKey].L++;
+                        else pairings[pairKey].T++;
+                    }
+                });
+                
+                // Best Ball
+                yearData.bestBallResults?.forEach(match => {
+                    const captains = Object.keys(yearData.captains || {});
+                    const team1Players = match[captains[0]];
+                    const team2Players = match[captains[1]];
+                    
+                    if (team1Players?.length === 2) {
+                        const pairKey = team1Players.sort().join(' & ');
+                        if (!pairings[pairKey]) pairings[pairKey] = { W: 0, L: 0, T: 0, format: 'Best Ball' };
+                        
+                        if (match.winner === captains[0]) pairings[pairKey].W++;
+                        else if (match.winner === captains[1]) pairings[pairKey].L++;
+                        else pairings[pairKey].T++;
+                    }
+                    
+                    if (team2Players?.length === 2) {
+                        const pairKey = team2Players.sort().join(' & ');
+                        if (!pairings[pairKey]) pairings[pairKey] = { W: 0, L: 0, T: 0, format: 'Best Ball' };
+                        
+                        if (match.winner === captains[1]) pairings[pairKey].W++;
+                        else if (match.winner === captains[0]) pairings[pairKey].L++;
+                        else pairings[pairKey].T++;
+                    }
+                });
+            });
+            
+            // Calculate win rates
+            Object.keys(pairings).forEach(pair => {
+                const stats = pairings[pair];
+                const total = stats.W + stats.L + stats.T;
+                stats.winRate = total > 0 ? (stats.W / total * 100).toFixed(1) : 0;
+                stats.total = total;
+            });
+            
+            return pairings;
         }
 
-        function findUnluckiestPlayers() {
-            // Players who consistently faced hot opponents
-            // Players with toughest strength of schedule
-            return [];
+        // Head-to-head records
+        function calculateHeadToHead() {
+            const h2h = {};
+            
+            Object.entries(matchData).forEach(([year, yearData]) => {
+                yearData.singlesResults?.forEach(match => {
+                    const captains = Object.keys(yearData.captains || {});
+                    const player1 = match[captains[0]];
+                    const player2 = match[captains[1]];
+                    
+                    if (player1 && player2 && player1 !== player2 &&
+                        !captainNicknames.includes(player1.toLowerCase()) && 
+                        !captainNicknames.includes(player2.toLowerCase())) {
+                        const key = [player1, player2].sort().join(' vs ');
+                        if (!h2h[key]) h2h[key] = { 
+                            player1: [player1, player2].sort()[0], 
+                            player2: [player1, player2].sort()[1],
+                            player1Wins: 0,
+                            player2Wins: 0,
+                            ties: 0,
+                            matches: []
+                        };
+                        
+                        const record = h2h[key];
+                        const sortedPlayers = [player1, player2].sort();
+                        
+                        if (match.winner === captains[0] && player1 === match[captains[0]]) {
+                            if (player1 === sortedPlayers[0]) record.player1Wins++;
+                            else record.player2Wins++;
+                        } else if (match.winner === captains[1] && player2 === match[captains[1]]) {
+                            if (player2 === sortedPlayers[0]) record.player1Wins++;
+                            else record.player2Wins++;
+                        } else {
+                            record.ties++;
+                        }
+                        
+                        record.matches.push({
+                            year,
+                            winner: match.winner,
+                            score: match.score
+                        });
+                    }
+                });
+            });
+            
+            return h2h;
+        }
+
+        function calculateCoursePerformance() {
+            const courseStats = {};
+            
+            Object.entries(matchData).forEach(([year, yearData]) => {
+                const course = yearData.course || 'Unknown';
+                if (!courseStats[course]) {
+                    courseStats[course] = {
+                        players: {},
+                        teamRecords: {},
+                        formatPerformance: { singles: {}, scramble: {}, bestBall: {} }
+                    };
+                }
+                
+                // Track individual performance by course
+                ['singlesResults', 'scrambleResults', 'bestBallResults'].forEach(format => {
+                    yearData[format]?.forEach(match => {
+                        const captains = Object.keys(yearData.captains || {});
+                        const formatType = format.replace('Results', '');
+                        
+                        if (format === 'singlesResults') {
+                            const player1 = match[captains[0]];
+                            const player2 = match[captains[1]];
+                            
+                            [player1, player2].forEach(player => {
+                                if (player && !captainNicknames.includes(player.toLowerCase())) {
+                                    if (!courseStats[course].players[player]) {
+                                        courseStats[course].players[player] = { W: 0, L: 0, T: 0 };
+                                    }
+                                    
+                                    if (match.winner?.includes(player)) {
+                                        courseStats[course].players[player].W++;
+                                    } else if (match.winner && !match.winner.includes(player)) {
+                                        courseStats[course].players[player].L++;
+                                    } else {
+                                        courseStats[course].players[player].T++;
+                                    }
+                                }
+                            });
+                        }
+                        
+                        // Track team performance by course
+                        captains.forEach(captain => {
+                            if (!courseStats[course].teamRecords[captain]) {
+                                courseStats[course].teamRecords[captain] = { W: 0, L: 0, T: 0 };
+                            }
+                        });
+                        
+                        if (match.winner) {
+                            courseStats[course].teamRecords[match.winner].W++;
+                            const loser = captains.find(c => c !== match.winner);
+                            if (loser) courseStats[course].teamRecords[loser].L++;
+                        } else {
+                            captains.forEach(captain => {
+                                courseStats[course].teamRecords[captain].T++;
+                            });
+                        }
+                    });
+                });
+            });
+            
+            // Calculate win rates
+            Object.keys(courseStats).forEach(course => {
+                Object.keys(courseStats[course].players).forEach(player => {
+                    const stats = courseStats[course].players[player];
+                    const total = stats.W + stats.L + stats.T;
+                    stats.winRate = total > 0 ? (stats.W / total * 100).toFixed(1) : 0;
+                    stats.total = total;
+                });
+                
+                Object.keys(courseStats[course].teamRecords).forEach(team => {
+                    const stats = courseStats[course].teamRecords[team];
+                    const total = stats.W + stats.L + stats.T;
+                    stats.winRate = total > 0 ? (stats.W / total * 100).toFixed(1) : 0;
+                    stats.total = total;
+                });
+            });
+            
+            return courseStats;
+        }
+
+        function calculateRevengeRate() {
+            const revengeData = {};
+            const matchHistory = {};
+            
+            // First pass: build match history
+            const allMatches = [];
+            Object.entries(matchData).forEach(([year, yearData]) => {
+                yearData.singlesResults?.forEach(match => {
+                    const captains = Object.keys(yearData.captains || {});
+                    const player1 = match[captains[0]];
+                    const player2 = match[captains[1]];
+                    
+                    if (player1 && player2 && !captainNicknames.includes(player1.toLowerCase()) && 
+                        !captainNicknames.includes(player2.toLowerCase())) {
+                        allMatches.push({
+                            year: parseInt(year),
+                            player1,
+                            player2,
+                            winner: match.winner,
+                            score: match.score
+                        });
+                    }
+                });
+            });
+            
+            // Sort by year
+            allMatches.sort((a, b) => a.year - b.year);
+            
+            // Track revenge opportunities
+            allMatches.forEach(match => {
+                const key = [match.player1, match.player2].sort().join(' vs ');
+                if (!matchHistory[key]) {
+                    matchHistory[key] = [];
+                }
+                
+                const history = matchHistory[key];
+                if (history.length > 0) {
+                    const lastMatch = history[history.length - 1];
+                    const lastWinner = lastMatch.winner?.includes(lastMatch.player1) ? lastMatch.player1 : lastMatch.player2;
+                    const lastLoser = lastWinner === lastMatch.player1 ? lastMatch.player2 : lastMatch.player1;
+                    const currentWinner = match.winner?.includes(match.player1) ? match.player1 : match.player2;
+                    
+                    if (!revengeData[lastLoser]) {
+                        revengeData[lastLoser] = { opportunities: 0, revenges: 0, failed: 0 };
+                    }
+                    
+                    revengeData[lastLoser].opportunities++;
+                    if (currentWinner === lastLoser) {
+                        revengeData[lastLoser].revenges++;
+                    } else {
+                        revengeData[lastLoser].failed++;
+                    }
+                }
+                
+                matchHistory[key].push(match);
+            });
+            
+            // Calculate revenge rates
+            Object.keys(revengeData).forEach(player => {
+                const data = revengeData[player];
+                data.revengeRate = data.opportunities > 0 ? 
+                    (data.revenges / data.opportunities * 100).toFixed(1) : 0;
+            });
+            
+            return revengeData;
         }
 
         function calculateMomentumScore() {
-            // Track how often teams winning Friday maintain lead
-            // Identify biggest comebacks
-            return {
-                fridayWinners: 0,
-                saturdayMomentumShifts: 0,
-                sundayCloseouts: 0
+            const momentum = {
+                fridayLeadHolds: { kept: 0, lost: 0 },
+                saturdayLeadHolds: { kept: 0, lost: 0 },
+                comebacks: [],
+                biggestSwings: []
             };
+            
+            Object.entries(matchData).forEach(([year, yearData]) => {
+                if (yearData.dailyScores) {
+                    const friday = yearData.dailyScores.friday || {};
+                    const saturday = yearData.dailyScores.saturday || {};
+                    const sunday = yearData.dailyScores.sunday || {};
+                    
+                    // Calculate cumulative scores
+                    const captains = Object.keys(yearData.captains || {});
+                    if (captains.length === 2) {
+                        const team1 = captains[0];
+                        const team2 = captains[1];
+                        
+                        // Friday to Saturday momentum
+                        const fridayLeader = friday[team1] > friday[team2] ? team1 : 
+                                           friday[team2] > friday[team1] ? team2 : null;
+                        
+                        if (fridayLeader) {
+                            const satCumulative1 = (friday[team1] || 0) + (saturday[team1] || 0);
+                            const satCumulative2 = (friday[team2] || 0) + (saturday[team2] || 0);
+                            const satLeader = satCumulative1 > satCumulative2 ? team1 : team2;
+                            
+                            if (fridayLeader === satLeader) {
+                                momentum.fridayLeadHolds.kept++;
+                            } else {
+                                momentum.fridayLeadHolds.lost++;
+                                momentum.comebacks.push({
+                                    year,
+                                    team: satLeader,
+                                    overcame: Math.abs(friday[team1] - friday[team2]),
+                                    day: 'Saturday'
+                                });
+                            }
+                        }
+                        
+                        // Saturday to Sunday momentum
+                        const satCumulative1 = (friday[team1] || 0) + (saturday[team1] || 0);
+                        const satCumulative2 = (friday[team2] || 0) + (saturday[team2] || 0);
+                        const saturdayLeader = satCumulative1 > satCumulative2 ? team1 : 
+                                             satCumulative2 > satCumulative1 ? team2 : null;
+                        
+                        if (saturdayLeader) {
+                            const finalScore1 = satCumulative1 + (sunday[team1] || 0);
+                            const finalScore2 = satCumulative2 + (sunday[team2] || 0);
+                            const winner = finalScore1 > finalScore2 ? team1 : team2;
+                            
+                            if (saturdayLeader === winner) {
+                                momentum.saturdayLeadHolds.kept++;
+                            } else {
+                                momentum.saturdayLeadHolds.lost++;
+                                momentum.comebacks.push({
+                                    year,
+                                    team: winner,
+                                    overcame: Math.abs(satCumulative1 - satCumulative2),
+                                    day: 'Sunday'
+                                });
+                            }
+                        }
+                        
+                        // Track biggest single-day swings
+                        const satSwing = Math.abs((saturday[team1] || 0) - (saturday[team2] || 0));
+                        const sunSwing = Math.abs((sunday[team1] || 0) - (sunday[team2] || 0));
+                        
+                        if (satSwing > 3) {
+                            momentum.biggestSwings.push({
+                                year,
+                                day: 'Saturday',
+                                points: satSwing,
+                                winner: (saturday[team1] || 0) > (saturday[team2] || 0) ? team1 : team2
+                            });
+                        }
+                        
+                        if (sunSwing > 3) {
+                            momentum.biggestSwings.push({
+                                year,
+                                day: 'Sunday',
+                                points: sunSwing,
+                                winner: (sunday[team1] || 0) > (sunday[team2] || 0) ? team1 : team2
+                            });
+                        }
+                    }
+                }
+            });
+            
+            // Sort comebacks and swings by magnitude
+            momentum.comebacks.sort((a, b) => b.overcame - a.overcame);
+            momentum.biggestSwings.sort((a, b) => b.points - a.points);
+            
+            return momentum;
         }
 
-        function generateInsightfulStats() {
-            // Generate actually interesting statistics
-            const insights = [
-                "Team Pardo's 15.5-8.5 victory featured a 9.5-2.5 Saturday/Sunday surge after trailing 4-2 on Friday",
-                "Jordan Portal (+3.1) gave strokes to every opponent in 2025, still went 2-0-1",
-                "Danny Yanez has won 14 of his last 16 matches dating back to 2022",
-                "Carlos Enjamio went 3-0 in 2024 but his team lost; went 0-2-1 in 2025 but his team lost again",
-                "The Portal brothers are 11-3-1 when paired together in team formats",
-                "Victor Riobueno has the toughest strength of schedule, facing an average 8.2 handicap",
-                "Teams winning Friday Scrambles have gone on to win the CR 6 of 8 times",
-                "Andrew Guasch (6-2) has the best win percentage among players with 2+ CRs",
-                "2025 featured the most lopsided singles day ever: 4.5-2.5 for Team Pardo",
-                "Pete Cabrera has alternated W-L-W-L-W-L-W-L in his last 8 matches"
-            ];
+        // Calculate strokes given in match based on handicaps and format
+        function calculateStrokesGiven(player1, player2, year, format) {
+            const hcp1 = handicapData[player1] && handicapData[player1][year] || 0;
+            const hcp2 = handicapData[player2] && handicapData[player2][year] || 0;
             
-            const now = new Date();
-            const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
-            return insights[dayOfYear % insights.length];
+            if (format === 'scramble') {
+                // In scramble, use team handicaps (35%/15% formula)
+                // This is simplified - you'd need both team members
+                return Math.abs(hcp1 - hcp2) * 0.35;
+            } else if (format === 'singles') {
+                return Math.abs(hcp1 - hcp2);
+            }
+            // Best ball uses full handicaps for both
+            return Math.abs(hcp1 - hcp2);
+        }
+
+        // Analyze performance vs handicap expectation
+        function analyzePerformanceVsHandicap() {
+            const analysis = {
+                byFormat: {
+                    singles: {},
+                    scramble: {},
+                    bestBall: {}
+                },
+                biggestUpsets: [],
+                upsetSpecialists: {}
+            };
+            
+            Object.entries(matchData).forEach(([year, yearData]) => {
+                // Analyze singles
+                yearData.singlesResults?.forEach(match => {
+                    const captains = Object.keys(yearData.captains || {});
+                    const player1 = match[captains[0]];
+                    const player2 = match[captains[1]];
+                    
+                    if (player1 && player2 && !captainNicknames.includes(player1.toLowerCase()) && 
+                        !captainNicknames.includes(player2.toLowerCase())) {
+                        const hcp1 = handicapData[player1]?.[year] || null;
+                        const hcp2 = handicapData[player2]?.[year] || null;
+                        
+                        if (hcp1 !== null && hcp2 !== null) {
+                            const strokesGiven = Math.abs(hcp1 - hcp2);
+                            const bucket = Math.floor(strokesGiven / 5) * 5;
+                            
+                            if (!analysis.byFormat.singles[bucket]) {
+                                analysis.byFormat.singles[bucket] = { total: 0, upsets: 0, favorites: 0 };
+                            }
+                            
+                            analysis.byFormat.singles[bucket].total++;
+                            
+                            const favorite = hcp1 < hcp2 ? player1 : player2;
+                            const underdog = hcp1 < hcp2 ? player2 : player1;
+                            const favoriteWon = match.winner?.includes(favorite);
+                            
+                            if (favoriteWon) {
+                                analysis.byFormat.singles[bucket].favorites++;
+                            } else if (match.winner?.includes(underdog)) {
+                                analysis.byFormat.singles[bucket].upsets++;
+                                
+                                // Track biggest upsets
+                                if (strokesGiven >= 10) {
+                                    analysis.biggestUpsets.push({
+                                        year,
+                                        format: 'singles',
+                                        winner: underdog,
+                                        loser: favorite,
+                                        strokesGiven,
+                                        score: match.score
+                                    });
+                                }
+                                
+                                // Track upset specialists
+                                if (!analysis.upsetSpecialists[underdog]) {
+                                    analysis.upsetSpecialists[underdog] = { upsets: 0, asFavorite: 0, asUnderdog: 0 };
+                                }
+                                analysis.upsetSpecialists[underdog].upsets++;
+                                analysis.upsetSpecialists[underdog].asUnderdog++;
+                            }
+                        }
+                    }
+                });
+                
+                // Analyze scrambles
+                yearData.scrambleResults?.forEach(match => {
+                    const captains = Object.keys(yearData.captains || {});
+                    const team1Players = match[captains[0]];
+                    const team2Players = match[captains[1]];
+                    
+                    if (team1Players?.length === 2 && team2Players?.length === 2) {
+                        // Calculate team handicaps (simplified - would need proper scramble calculation)
+                        const team1Hcp = team1Players.reduce((sum, p) => {
+                            return sum + (handicapData[p]?.[year] || 0);
+                        }, 0) / 2;
+                        
+                        const team2Hcp = team2Players.reduce((sum, p) => {
+                            return sum + (handicapData[p]?.[year] || 0);
+                        }, 0) / 2;
+                        
+                        const strokesGiven = Math.abs(team1Hcp - team2Hcp);
+                        const bucket = Math.floor(strokesGiven / 5) * 5;
+                        
+                        if (!analysis.byFormat.scramble[bucket]) {
+                            analysis.byFormat.scramble[bucket] = { total: 0, upsets: 0, favorites: 0 };
+                        }
+                        
+                        analysis.byFormat.scramble[bucket].total++;
+                        
+                        const favoriteTeam = team1Hcp < team2Hcp ? captains[0] : captains[1];
+                        if (match.winner === favoriteTeam) {
+                            analysis.byFormat.scramble[bucket].favorites++;
+                        } else if (match.winner) {
+                            analysis.byFormat.scramble[bucket].upsets++;
+                        }
+                    }
+                });
+            });
+            
+            // Sort biggest upsets
+            analysis.biggestUpsets.sort((a, b) => b.strokesGiven - a.strokesGiven);
+            
+            // Calculate upset rates
+            Object.keys(analysis.byFormat).forEach(format => {
+                Object.keys(analysis.byFormat[format]).forEach(bucket => {
+                    const stats = analysis.byFormat[format][bucket];
+                    stats.upsetRate = stats.total > 0 ? (stats.upsets / stats.total * 100).toFixed(1) : 0;
+                    stats.favoriteRate = stats.total > 0 ? (stats.favorites / stats.total * 100).toFixed(1) : 0;
+                });
+            });
+            
+            return analysis;
+        }
+
+        function generateMeaningfulStats() {
+            // Only return stats if we have data loaded
+            if (!matchData || Object.keys(matchData).length === 0) {
+                return "Loading match data...";
+            }
+            
+            try {
+                const teamChemistry = calculateTeamChemistry();
+                const h2hRecords = calculateHeadToHead();
+                const sos = calculateStrengthOfSchedule();
+                const momentum = calculateMomentumScore();
+                const upsetAnalysis = analyzePerformanceVsHandicap();
+                const coursePerformance = calculateCoursePerformance();
+                const revengeData = calculateRevengeRate();
+                
+                const insights = [];
+                
+                // Find best pairings
+                const pairingsArray = Object.entries(teamChemistry)
+                    .filter(([_, stats]) => stats.total >= 2)
+                    .sort((a, b) => parseFloat(b[1].winRate) - parseFloat(a[1].winRate));
+                
+                if (pairingsArray.length > 0) {
+                    const bestPair = pairingsArray[0];
+                    insights.push(`Best pairing: <span class='stat-highlight'>${bestPair[0]}</span> win ${bestPair[1].winRate}% together (${bestPair[1].W}-${bestPair[1].L}-${bestPair[1].T})`);
+                }
+                
+                // Find worst pairing (anti-chemistry)
+                const worstPairings = pairingsArray
+                    .filter(([_, stats]) => stats.total >= 3)
+                    .sort((a, b) => parseFloat(a[1].winRate) - parseFloat(b[1].winRate));
+                
+                if (worstPairings.length > 0) {
+                    const worstPair = worstPairings[0];
+                    insights.push(`Anti-chemistry alert: <span class='stat-highlight'>${worstPair[0]}</span> only ${worstPair[1].winRate}% win rate together`);
+                }
+                
+                // Find toughest SOS
+                const sosArray = Object.entries(sos)
+                    .filter(([player, data]) => data.count >= 3)
+                    .sort((a, b) => a[1].avgOpponentHcp - b[1].avgOpponentHcp);
+                
+                if (sosArray.length > 0) {
+                    const toughest = sosArray[0];
+                    insights.push(`Toughest schedule: <span class='stat-highlight'>${toughest[0]}</span> faces ${toughest[1].avgOpponentHcp.toFixed(1)} avg handicap opponents`);
+                }
+                
+                // Find easiest SOS
+                if (sosArray.length > 0) {
+                    const easiest = sosArray[sosArray.length - 1];
+                    insights.push(`Easiest schedule: <span class='stat-highlight'>${easiest[0]}</span> faces ${easiest[1].avgOpponentHcp.toFixed(1)} avg handicap opponents`);
+                }
+                
+                // Find most lopsided H2H
+                const dominantH2H = Object.entries(h2hRecords)
+                    .filter(([_, record]) => (record.player1Wins + record.player2Wins + record.ties) >= 2)
+                    .map(([matchup, record]) => {
+                        const total = record.player1Wins + record.player2Wins + record.ties;
+                        const dominance = Math.max(record.player1Wins, record.player2Wins) / total;
+                        const winner = record.player1Wins > record.player2Wins ? record.player1 : record.player2;
+                        const loser = record.player1Wins > record.player2Wins ? record.player2 : record.player1;
+                        const wins = Math.max(record.player1Wins, record.player2Wins);
+                        const losses = Math.min(record.player1Wins, record.player2Wins);
+                        return { matchup, winner, loser, wins, losses, ties: record.ties, dominance };
+                    })
+                    .sort((a, b) => b.dominance - a.dominance);
+                
+                if (dominantH2H.length > 0) {
+                    const dominant = dominantH2H[0];
+                    insights.push(`Most dominant H2H: <span class='stat-highlight'>${dominant.winner}</span> owns ${dominant.loser} (${dominant.wins}-${dominant.losses}-${dominant.ties})`);
+                }
+                
+                // Perfect pairings
+                const undefeatedPairs = pairingsArray.filter(([_, stats]) => stats.L === 0 && stats.total >= 2);
+                if (undefeatedPairs.length > 0) {
+                    const pair = undefeatedPairs[0];
+                    insights.push(`Undefeated pairing: <span class='stat-highlight'>${pair[0]}</span> are ${pair[1].W}-${pair[1].L}-${pair[1].T} together`);
+                }
+                
+                // Momentum insights
+                if (momentum.fridayLeadHolds.kept + momentum.fridayLeadHolds.lost > 0) {
+                    const fridayHoldRate = (momentum.fridayLeadHolds.kept / (momentum.fridayLeadHolds.kept + momentum.fridayLeadHolds.lost) * 100).toFixed(0);
+                    insights.push(`Friday leaders win <span class='stat-highlight'>${fridayHoldRate}%</span> of the time (${momentum.fridayLeadHolds.kept}/${momentum.fridayLeadHolds.kept + momentum.fridayLeadHolds.lost})`);
+                }
+                
+                if (momentum.comebacks.length > 0) {
+                    const biggestComeback = momentum.comebacks[0];
+                    insights.push(`Biggest comeback: <span class='stat-highlight'>${biggestComeback.team}</span> overcame ${biggestComeback.overcame} points on ${biggestComeback.day} (${biggestComeback.year})`);
+                }
+                
+                // Upset insights
+                const singlesUpsets = upsetAnalysis.byFormat.singles;
+                const totalSingles = Object.values(singlesUpsets).reduce((sum, bucket) => sum + bucket.total, 0);
+                const totalUpsets = Object.values(singlesUpsets).reduce((sum, bucket) => sum + bucket.upsets, 0);
+                if (totalSingles > 10) {
+                    const upsetRate = (totalUpsets / totalSingles * 100).toFixed(1);
+                    insights.push(`Singles upset rate: <span class='stat-highlight'>${upsetRate}%</span> (higher handicap wins ${totalUpsets}/${totalSingles} matches)`);
+                }
+                
+                // Biggest upset
+                if (upsetAnalysis.biggestUpsets.length > 0) {
+                    const biggest = upsetAnalysis.biggestUpsets[0];
+                    insights.push(`Biggest upset: <span class='stat-highlight'>${biggest.winner}</span> (+${biggest.strokesGiven}) defeated ${biggest.loser} in ${biggest.year}`);
+                }
+                
+                // Clutch players
+                const playerNames = Object.keys(sos).filter(p => !captainNicknames.includes(p.toLowerCase()));
+                const clutchRatings = playerNames.map(player => {
+                    const rating = calculateClutchRating(player);
+                    return { player, rating: parseFloat(rating.clutchRating), closeRecord: rating.closeMatchRecord };
+                }).filter(p => p.rating > 0 && p.closeRecord !== "0-0-0");
+                
+                if (clutchRatings.length > 0) {
+                    clutchRatings.sort((a, b) => b.rating - a.rating);
+                    const mostClutch = clutchRatings[0];
+                    insights.push(`Most clutch: <span class='stat-highlight'>${mostClutch.player}</span> with ${mostClutch.rating}% clutch rating (${mostClutch.closeRecord} in close matches)`);
+                }
+                
+                // Format-specific upset rates
+                const scrambleUpsets = upsetAnalysis.byFormat.scramble;
+                if (Object.keys(scrambleUpsets).length > 0) {
+                    const bucket10Plus = scrambleUpsets[10] || scrambleUpsets[15] || scrambleUpsets[20];
+                    if (bucket10Plus && bucket10Plus.total >= 5) {
+                        insights.push(`Teams giving 10+ strokes in scrambles win <span class='stat-highlight'>${bucket10Plus.favoriteRate}%</span> of the time`);
+                    }
+                }
+                
+                // Course performance insights
+                Object.entries(coursePerformance).forEach(([course, data]) => {
+                    if (course !== 'Unknown') {
+                        // Find course horses
+                        const courseHorses = Object.entries(data.players)
+                            .filter(([_, stats]) => stats.total >= 3 && parseFloat(stats.winRate) >= 70)
+                            .sort((a, b) => parseFloat(b[1].winRate) - parseFloat(a[1].winRate));
+                        
+                        if (courseHorses.length > 0) {
+                            const horse = courseHorses[0];
+                            insights.push(`Course horse at ${course}: <span class='stat-highlight'>${horse[0]}</span> wins ${horse[1].winRate}% (${horse[1].W}-${horse[1].L}-${horse[1].T})`);
+                        }
+                    }
+                });
+                
+                // Revenge rate insights
+                const revengeSpecialists = Object.entries(revengeData)
+                    .filter(([_, data]) => data.opportunities >= 3)
+                    .sort((a, b) => parseFloat(b[1].revengeRate) - parseFloat(a[1].revengeRate));
+                
+                if (revengeSpecialists.length > 0) {
+                    const bestRevenger = revengeSpecialists[0];
+                    insights.push(`Best at revenge: <span class='stat-highlight'>${bestRevenger[0]}</span> avenges losses ${bestRevenger[1].revengeRate}% of the time (${bestRevenger[1].revenges}/${bestRevenger[1].opportunities})`);
+                }
+                
+                // Worst at revenge
+                const worstRevengers = revengeSpecialists.filter(([_, data]) => parseFloat(data.revengeRate) < 30);
+                if (worstRevengers.length > 0) {
+                    const worst = worstRevengers[worstRevengers.length - 1];
+                    insights.push(`Struggles with revenge: <span class='stat-highlight'>${worst[0]}</span> only ${worst[1].revengeRate}% revenge rate (${worst[1].revenges}/${worst[1].opportunities})`);
+                }
+                
+                // Add some fallback insights if we don't have enough data
+                if (insights.length === 0) {
+                    insights.push("Still calculating statistics from match data...");
+                }
+                
+                // Return a random insight from the calculated ones
+                return insights[Math.floor(Math.random() * insights.length)];
+                
+            } catch (error) {
+                console.error('Error generating stats:', error);
+                return "Analyzing match data...";
+            }
+        }
+
+        // Keep the old function name for compatibility but use the new one
+        function generateInsightfulStats() {
+            return generateMeaningfulStats();
         }
 
         function calculateFormatSpecialists() {
@@ -1373,68 +2162,6 @@
             return formatStats;
         }
 
-        function analyzePredictivePatterns() {
-            return [
-                {
-                    description: "Friday winners take tournament",
-                    strength: "75% accuracy"
-                },
-                {
-                    description: "Singles decides close matches",
-                    strength: "6 of 8 times"
-                },
-                {
-                    description: "Handicap delta > 2 predicts winner",
-                    strength: "82% accuracy"
-                },
-                {
-                    description: "Hot streaks carry across years",
-                    strength: "Strong correlation"
-                }
-            ];
-        }
-
-        function identifyEmergingStorylines() {
-            return [
-                {
-                    title: "The Dynasty Question",
-                    description: "Can anyone stop Danny Yanez's dominant run? 14 wins in last 16 matches suggests not."
-                },
-                {
-                    title: "Format Evolution",
-                    description: "Alt Shot becoming increasingly decisive - winners dominating this format win 80% of CRs"
-                },
-                {
-                    title: "The Handicap Arms Race",
-                    description: "Average handicaps dropping faster than ever as competition intensifies"
-                },
-                {
-                    title: "Portal Brothers Partnership",
-                    description: "At 11-3-1 together, should they ever be separated in team formats?"
-                }
-            ];
-        }
-
-        function identifyStatisticalAnomalies() {
-            return [
-                {
-                    description: "Carlos Enjamio curse",
-                    value: "3-0 personal, 0-2 team results"
-                },
-                {
-                    description: "Perfect alternation",
-                    value: "Pete's W-L-W-L pattern"
-                },
-                {
-                    description: "Handicap paradox",
-                    value: "Jordan +3.1 beats lower hdcps"
-                },
-                {
-                    description: "Friday futility",
-                    value: "Team Salas 2-6 on Fridays"
-                }
-            ];
-        }
 
         let currentTab = 'overview';
 
@@ -2724,275 +3451,7 @@
             `;
         }
 
-        // Random stats array with 365 data-driven stats
-        const randomStats = [
-            // Historical Facts (1-20)
-            "The <span class='stat-highlight'>2024 Captain Paradox</span>: Carlos Enjamio went 3-0 but lost, while Victor Garcia went 0-3 but won",
-            "Danny Yanez has been involved in <span class='stat-highlight'>both 15.5-8.5 scores</span> - winning as captain in 2021, losing as player in 2025",
-            "<span class='stat-highlight'>Only 1-point victory</span> in CR history: Jo Noy 12.5 - Shawn Noy 11.5 (2022)",
-            "Danny Yanez had the <span class='stat-highlight'>longest winning streak</span>: 5 consecutive CRs (2020-2024)",
-            "Boogie Lastra is the only player with a <span class='stat-highlight'>winning record (8-7)</span> never to win a championship",
-            "The first two CRs both ended <span class='stat-highlight'>9-7</span>, the only repeated score until 15.5-8.5 (2021, 2025)",
-            "Victor Riobueno and Danny Yanez <span class='stat-highlight'>tie for best CR win rate</span> among perfect attendance players: 62.5%",
-            "Only <span class='stat-highlight'>5 players have never won</span> out of 44 total participants (89% have won at least once)",
-            "Pete Cabrera has <span class='stat-highlight'>25% win rate</span> despite perfect attendance - lowest among the 8-CR club",
-            "<span class='stat-highlight'>2024 expanded to 28 players</span> (from usual 24), then returned to 24 in 2025",
-            "Danny Yanez has an <span class='stat-highlight'>87.5% win rate</span> in both Scrambles (7-1) AND Singles (7-1)",
-            "<span class='stat-highlight'>Stefano Diaz</span> joined in 2024 with a 2.5 handicap, improved to 0.5 by 2025",
-            "The average victory margin has <span class='stat-highlight'>increased from 2.0 to 4.0</span> points from Years 1-4 to Years 5-8",
-            "Both <span class='stat-highlight'>7-point victories</span> (2021, 2025) had Danny Yanez on a team",
-            "<span class='stat-highlight'>4 players</span> have perfect attendance: Danny Yanez, Javi Portal, Pete Cabrera, Victor Riobueno",
-            "Alex Lastra has the <span class='stat-highlight'>3rd best record</span> (15-5-1) despite missing CR8",
-            "Jordan Portal improved from <span class='stat-highlight'>0.5 to +3.1</span> handicap - best improvement to plus territory",
-            "<span class='stat-highlight'>Brother captains</span> are 2-0: Jo beat Shawn (2022), Stuart beat Wes (2023)",
-            "Team Victor in 2024 had the <span class='stat-highlight'>most unique captain situation</span>: 0-3 captain, 15-13 victory",
-            "Mario Martinez and Shawn Noy are the only captains to <span class='stat-highlight'>lose all individual matches</span> and lose the CR",
-            
-            // Player Records (21-60)
-            "Danny Yanez's <span class='stat-highlight'>19 wins</span> are 5 more than anyone else (Javi Portal has 14)",
-            "Pete Cabrera is <span class='stat-highlight'>exactly .500</span> lifetime at 12-12-0",
-            "Michael Quintana has a <span class='stat-highlight'>winning record</span> (9-7-2) despite playing in only 6 CRs",
-            "Lawrence Pardo went from <span class='stat-highlight'>captain to winner</span> in his 7th CR (2025)",
-            "Carlos Enjamio improved his handicap by <span class='stat-highlight'>11.7 strokes</span> from 2018 to 2025",
-            "Victor Garcia has played in <span class='stat-highlight'>21 matches</span> (9-10-2) across his CR career",
-            "Javi Vargas has the most <span class='stat-highlight'>ties</span> among regular players with 2",
-            "Jo Noy captained to the <span class='stat-highlight'>closest victory ever</span> by 1 point in 2022",
-            "Alex Lastra went <span class='stat-highlight'>3-0-0</span> as captain in 2019 - perfect individual record",
-            "Stuart Briggle went <span class='stat-highlight'>1-1-1</span> as captain but still won in 2023",
-            "Ricky Escobar has played in <span class='stat-highlight'>4 CRs</span> with a 6-6-0 record",
-            "Eric Diaz first played in <span class='stat-highlight'>CR5</span> (2022) and has a 4-8-0 record",
-            "Mauricio Restrepo has appeared in <span class='stat-highlight'>6 CRs</span> starting from 2020",
-            "Luis Sandoval joined in <span class='stat-highlight'>CR6</span> and already has a winning record (3-2-1)",
-            "Andrew Guasch has a <span class='stat-highlight'>75% win rate</span> (6-2-0) in just 2 CRs",
-            "Kevin Samlut is <span class='stat-highlight'>.500</span> (3-3) after 2 appearances",
-            "Mikey Newmeyer went <span class='stat-highlight'>1-2</span> in his rookie year (2024)",
-            "Joey Pinto went <span class='stat-highlight'>0-3</span> in his rookie year (2025)",
-            "Stefano Diaz had a <span class='stat-highlight'>winning debut</span> at 1-2 in 2024",
-            "Roger De Armas played in <span class='stat-highlight'>both expanded years</span> (2024-2025)",
-            
-            // Format-Specific Stats (61-100)
-            "Danny Yanez is <span class='stat-highlight'>7-1 in Scrambles</span> - best win % among regulars",
-            "Lawrence Pardo is <span class='stat-highlight'>5-0-2 in Scrambles</span> - undefeated with 2 ties",
-            "Danny Yanez is <span class='stat-highlight'>7-1 in Singles</span> - dominant in 1v1 matches",
-            "Jordan Portal has a <span class='stat-highlight'>4-3 Singles record</span> despite being an elite player",
-            "Pete Cabrera is <span class='stat-highlight'>4-8 in Singles</span> - struggles in individual matches",
-            "Michael Quintana is <span class='stat-highlight'>4-2 in Scrambles</span> - thrives in team format",
-            "Carlos Enjamio has <span class='stat-highlight'>never lost in Scrambles</span> when data is available",
-            "Best Ball format shows the <span class='stat-highlight'>most parity</span> - no player dominates",
-            "Scramble matches have the <span class='stat-highlight'>highest favorite win rate</span> due to team handicap formula",
-            "Singles matches produce the <span class='stat-highlight'>most upsets</span> - full handicaps level the field",
-            "The <span class='stat-highlight'>35%/15% scramble formula</span> gives teams 3-8 strokes typically",
-            "Best Ball allows <span class='stat-highlight'>both players full handicaps</span> - most strokes given",
-            "Team Portal/Noy won <span class='stat-highlight'>all 3 formats</span> in 2018 sweep",
-            "Team Danny/Yanez won <span class='stat-highlight'>all 3 formats</span> in 2021 sweep",
-            "No team has been <span class='stat-highlight'>swept 0-3</span> in all formats in one year",
-            "Scrambles average <span class='stat-highlight'>6 matches per year</span> in the current format",
-            "Best Ball averages <span class='stat-highlight'>6 matches per year</span> in the current format",
-            "Singles can have <span class='stat-highlight'>6-7 matches</span> depending on player count",
-            "The most <span class='stat-highlight'>lopsided format victory</span> was 6-0 in a single format",
-            "Teams have <span class='stat-highlight'>split formats</span> (each winning at least one) in 5 of 8 years",
-            
-            // Handicap Evolution (101-140)
-            "Jordan Portal went from <span class='stat-highlight'>scratch to +3.1</span> - only player to reach plus handicap",
-            "Danny Yanez improved from <span class='stat-highlight'>16 to 8</span> handicap over 8 years",
-            "Javi Portal has maintained <span class='stat-highlight'>scratch to 1.5</span> - most consistent elite player",
-            "Pete Cabrera's handicap ranged from <span class='stat-highlight'>6.1 to 8</span> - very stable",
-            "Carlos Enjamio dropped from <span class='stat-highlight'>25 to 13.3</span> - massive improvement",
-            "Victor Riobueno improved from <span class='stat-highlight'>22.1 to 14.4</span> over the years",
-            "Alex Lastra's handicap went from <span class='stat-highlight'>26.5 to 20.5</span> - steady improvement",
-            "Stefano Diaz entered at <span class='stat-highlight'>2.5</span> and dropped to 0.5 in one year",
-            "Boogie Lastra improved from <span class='stat-highlight'>28 to 22.8</span> handicap",
-            "Eric Diaz maintains around <span class='stat-highlight'>24 handicap</span> consistently",
-            "The average CR player handicap is approximately <span class='stat-highlight'>18</span>",
-            "Plus handicaps (<span class='stat-highlight'>better than scratch</span>) are rare - only Jordan Portal",
-            "Single-digit handicaps include <span class='stat-highlight'>7 players</span> in 2025",
-            "Double-digit handicaps make up <span class='stat-highlight'>70% of the field</span>",
-            "<span class='stat-highlight'>20+ handicaps</span> represent about 30% of players",
-            "The highest handicap recorded was <span class='stat-highlight'>40</span> (Ernesto Ibanez)",
-            "Handicap improvement averages <span class='stat-highlight'>0.5-1 stroke per year</span> for regular players",
-            "Elite players (<5 hcp) have won <span class='stat-highlight'>62% of their matches</span>",
-            "Mid-handicappers (10-20) make up the <span class='stat-highlight'>largest group</span>",
-            "High handicappers (20+) have won <span class='stat-highlight'>4 championships</span>",
-            
-            // Team Dynamics (141-180)
-            "Teams named after their captain have won <span class='stat-highlight'>100% of the time</span>",
-            "Co-captains appeared in <span class='stat-highlight'>2020 and 2024</span> with mixed results",
-            "The Noy brothers faced off as captains in <span class='stat-highlight'>2022</span> - Jo won",
-            "The Briggle brothers faced off as captains in <span class='stat-highlight'>2023</span> - Stuart won",
-            "Portal brothers have never been <span class='stat-highlight'>opposing captains</span>",
-            "Team sizes have ranged from <span class='stat-highlight'>12-14 players</span> per side",
-            "<span class='stat-highlight'>24 total players</span> is the standard (12 per team)",
-            "2024's expansion to <span class='stat-highlight'>28 players</span> was temporary",
-            "Home team advantage <span class='stat-highlight'>doesn't exist</span> - neutral venues",
-            "Draft order has <span class='stat-highlight'>no correlation</span> with winning",
-            "Teams with more <span class='stat-highlight'>single-digit handicaps</span> win 65% of the time",
-            "Balanced teams (mix of handicaps) have won <span class='stat-highlight'>3 of 8 CRs</span>",
-            "Elite-heavy teams have won <span class='stat-highlight'>5 of 8 CRs</span>",
-            "The most <span class='stat-highlight'>elite players on one team</span> was 4 (Team Danny 2021)",
-            "The most <span class='stat-highlight'>high handicappers on one team</span> was 5",
-            "Team chemistry matters: <span class='stat-highlight'>friends/family pairings</span> win more",
-            "Cross-team friendships create <span class='stat-highlight'>interesting dynamics</span>",
-            "Player loyalty is high - <span class='stat-highlight'>few switch allegiances</span>",
-            "Rookie distribution aims for <span class='stat-highlight'>balance</span> between teams",
-            "Veteran players provide <span class='stat-highlight'>leadership</span> and experience",
-            
-            // Venue Stats (181-220)
-            "Reunion Palmer from Gold tees: <span class='stat-highlight'>70.9/133</span> rating/slope",
-            "Disney Magnolia from White tees: <span class='stat-highlight'>71.6/130</span> rating/slope",
-            "Waldorf Astoria from Blue/White: <span class='stat-highlight'>71.7/137</span> rating/slope",
-            "The <span class='stat-highlight'>toughest course</span> by slope is Waldorf Astoria (137)",
-            "The <span class='stat-highlight'>easiest course</span> by slope is Disney Magnolia (130)",
-            "Course ratings are all within <span class='stat-highlight'>1 stroke</span> of each other",
-            "Florida venues provide <span class='stat-highlight'>year-round playability</span>",
-            "Reunion Resort has hosted <span class='stat-highlight'>multiple CRs</span>",
-            "Disney courses offer <span class='stat-highlight'>unique atmosphere</span>",
-            "Waldorf Astoria provides <span class='stat-highlight'>luxury experience</span>",
-            "Morning tee times are <span class='stat-highlight'>preferred</span> for Florida heat",
-            "Cart path only conditions affect <span class='stat-highlight'>pace of play</span>",
-            "Course setup favors <span class='stat-highlight'>accuracy over distance</span>",
-            "Water hazards impact <span class='stat-highlight'>high handicappers more</span>",
-            "Bunker play becomes <span class='stat-highlight'>crucial</span> in match play",
-            "Green speeds average <span class='stat-highlight'>10-11 on stimp</span>",
-            "Rough is kept at <span class='stat-highlight'>moderate height</span> for pace",
-            "Pin positions are set for <span class='stat-highlight'>match play drama</span>",
-            "Weather has only affected <span class='stat-highlight'>one CR</span> significantly",
-            "Central Florida location is <span class='stat-highlight'>convenient</span> for most players",
-            
-            // Historical Trends (221-260)
-            "Scoring has gotten <span class='stat-highlight'>tighter</span> over 8 years",
-            "Average margin dropped from <span class='stat-highlight'>4.5 to 3.5</span> points",
-            "Handicaps have <span class='stat-highlight'>improved overall</span> by 15%",
-            "Player retention rate is <span class='stat-highlight'>85%</span> year-over-year",
-            "New player integration averages <span class='stat-highlight'>3-4 per year</span>",
-            "The event has grown from <span class='stat-highlight'>16 to 44</span> total participants",
-            "Competition level has <span class='stat-highlight'>increased significantly</span>",
-            "Match play intensity has <span class='stat-highlight'>ramped up</span> each year",
-            "Comeback victories have occurred in <span class='stat-highlight'>3 of 8 years</span>",
-            "Wire-to-wire victories happened in <span class='stat-highlight'>5 of 8 years</span>",
-            "The largest lead overcome was <span class='stat-highlight'>5 points</span>",
-            "Momentum shifts are <span class='stat-highlight'>common</span> in Ryder Cup format",
-            "Sunday singles often <span class='stat-highlight'>decide</span> close matches",
-            "Saturday team matches set the <span class='stat-highlight'>tone</span>",
-            "Friday scrambles create <span class='stat-highlight'>early momentum</span>",
-            "Format consistency has been maintained <span class='stat-highlight'>all 8 years</span>",
-            "Tradition importance has <span class='stat-highlight'>grown</span> over time",
-            "Player improvement is <span class='stat-highlight'>encouraged</span> and celebrated",
-            "Sportsmanship remains <span class='stat-highlight'>paramount</span>",
-            "The event has become a <span class='stat-highlight'>highlight</span> of the year",
-            
-            // Match Play Drama (261-300)
-            "Matches decided by 1 hole: <span class='stat-highlight'>23%</span> of all matches",
-            "Matches going to 18: <span class='stat-highlight'>15%</span> of all matches",
-            "Largest blowout: <span class='stat-highlight'>8&7</span> in singles",
-            "Comeback from 4 down has happened <span class='stat-highlight'>3 times</span>",
-            "Halved matches count as <span class='stat-highlight'>0.5 points</span> each",
-            "Conceded putts must be <span class='stat-highlight'>inside leather</span>",
-            "Gamesmanship is <span class='stat-highlight'>part of match play</span>",
-            "Pressure putts decide <span class='stat-highlight'>many matches</span>",
-            "Team support impacts <span class='stat-highlight'>individual performance</span>",
-            "Captain pairings are <span class='stat-highlight'>strategic</span>",
-            "Anchor matches have decided <span class='stat-highlight'>2 CRs</span>",
-            "Lead-off matches set <span class='stat-highlight'>early tone</span>",
-            "Middle matches often <span class='stat-highlight'>swing momentum</span>",
-            "Format knowledge provides <span class='stat-highlight'>strategic advantage</span>",
-            "Match play rewards <span class='stat-highlight'>aggressive play</span>",
-            "Conservative play can <span class='stat-highlight'>backfire</span> in match play",
-            "Clutch putting wins <span class='stat-highlight'>close matches</span>",
-            "Mental toughness is <span class='stat-highlight'>tested constantly</span>",
-            "Team chemistry affects <span class='stat-highlight'>pairings success</span>",
-            "Experience matters in <span class='stat-highlight'>pressure situations</span>",
-            
-            // Individual Achievements (301-340)
-            "Danny Yanez: <span class='stat-highlight'>Mr. Company Retreat</span> with 19 wins",
-            "Javi Portal: <span class='stat-highlight'>Mr. Consistency</span> with steady play",
-            "Alex Lastra: <span class='stat-highlight'>Captain Perfect</span> - 3-0 as captain",
-            "Jordan Portal: <span class='stat-highlight'>Most Improved</span> to plus handicap",
-            "Pete Cabrera: <span class='stat-highlight'>Iron Man</span> - perfect attendance",
-            "Victor Riobueno: <span class='stat-highlight'>Steady Eddie</span> - consistent performer",
-            "Carlos Enjamio: <span class='stat-highlight'>Biggest Improver</span> - dropped 11.7 strokes",
-            "Lawrence Pardo: <span class='stat-highlight'>Captain Clutch</span> - won as captain",
-            "Michael Quintana: <span class='stat-highlight'>Format Specialist</span> - excels in scrambles",
-            "Jo Noy: <span class='stat-highlight'>Narrow Victory</span> captain - won by 1",
-            "Stuart Briggle: <span class='stat-highlight'>Brother Victor</span> - beat Wes",
-            "Andrew Guasch: <span class='stat-highlight'>Rookie Sensation</span> - 75% win rate",
-            "Boogie Lastra: <span class='stat-highlight'>Best Never to Win</span> - 8-7 record",
-            "Shawn Noy: <span class='stat-highlight'>Heartbreak Captain</span> - lost by 1",
-            "Mario Martinez: <span class='stat-highlight'>Tough Luck Captain</span> - faced Danny",
-            "Stefano Diaz: <span class='stat-highlight'>Elite Arrival</span> - joined at 2.5 hcp",
-            "Eric Diaz: <span class='stat-highlight'>Team Player</span> - fills any role",
-            "Luis Sandoval: <span class='stat-highlight'>Rising Star</span> - winning record quickly",
-            "Kevin Samlut: <span class='stat-highlight'>Steady Newcomer</span> - .500 record",
-            "Mauricio Restrepo: <span class='stat-highlight'>Reliable Veteran</span> - 6 CRs",
-            
-            // Plus handicap insights
-            "Jordan Portal is the only player to achieve plus handicap status (+3.1 in 2025)",
-            "Jordan Portal improved from scratch (0) to +3.1 - a 3.1 stroke improvement to plus territory",
-            "In 2025, Jordan Portal (+3.1) had to give strokes to every other player in the field",
-            "The gap between Jordan Portal (+3.1) and Mooser Rodriguez (37) was 40.1 strokes in 2025",
-            
-            // Course-specific insights
-            "West Palm Beach Par 3 (52.9/113) was the shortest and easiest course in CR history",
-            "Champions Gate International (73.0/132) has the highest course rating played for Singles",
-            "Grand Cypress Links (70.4/117) had the lowest slope rating in the last 4 years",
-            "Waldorf Astoria (71.7/137) has the highest slope rating for any Singles course",
-            "Reunion courses have been used 11 times across all CRs - the most popular venue",
-            
-            // Team handicap calculations
-            "In Scrambles, a 10 and 20 handicapper would play as a 6.5 team (35% + 15%)",
-            "The maximum strokes a team could give in Scramble is about 8-10 strokes",
-            "In Best Ball, both players use full handicaps - biggest advantage for format",
-            "A scratch player paired with a 30 gives the team huge Best Ball flexibility",
-            
-            // Format analysis
-            "Singles matches have produced the most lopsided results in CR history",
-            "Scramble format favors elite players more due to 35%/15% formula",
-            "Best Ball is the most handicap-friendly format with full strokes for both",
-            "Teams with mixed handicaps (low + high) excel in Best Ball format",
-            
-            // Deep percentage analysis
-            "Teams giving strokes in Scrambles win 72% of matches due to 35%/15% formula",
-            "Elite players (<5 hcp) win 68% of Singles matches when giving 10+ strokes",
-            "Best Ball teams with 20+ hcp spread win 61% vs similar handicap teams",
-            "Matches decided by 1 hole: 23% overall, but 31% in Singles format",
-            
-            // Format-specific win rates
-            "In Scrambles, the lower handicap team wins 72% of the time",
-            "In Best Ball, the lower handicap team wins only 58% of the time",
-            "Singles matches see the favorite win 64% when giving 5-10 strokes",
-            "When giving 15+ strokes in Singles, favorites still win 52% of matches",
-            
-            // Upset analysis
-            "Biggest Singles upset potential: 20+ handicapper beating scratch (18% occurrence)",
-            "Scramble upsets (team giving 3+ strokes loses) happen 28% of the time",
-            "Best Ball produces the most upsets at 42% due to full handicaps",
-            "Weather conditions increase upset probability by estimated 15%",
-            
-            // Course difficulty insights
-            "The toughest Singles course/slope combination: Champions Gate Int'l 2024 (73.0/132)",
-            "Disney's Palm (68.7/124) was the easiest Best Ball course rating in CR history",
-            "Reunion Nicklaus from blue tees has been used for both Scramble and Singles",
-            "The average course rating across all CRs is 70.3 - typical championship difficulty",
-            
-            // Handicap differential analysis
-            "The largest handicap gap in a match: 40+ strokes (Jordan +3.1 vs Ernesto 40)",
-            "Teams with 15+ stroke handicap differences excel in Best Ball format",
-            "In 2025, the average team handicap differential in Scrambles was 3.2 strokes",
-            "Plus handicap players must give strokes even to scratch golfers",
-            
-            // Performance metrics
-            "Players who improve 5+ strokes often see immediate CR success",
-            "The average handicap improvement for CR players is 1.8 strokes over 4 years",
-            "90% of players with 20+ handicaps have won at least one CR",
-            "Handicaps between 15-20 have the highest CR championship rate (71%)",
-            
-            // Strategic insights
-            "Scramble pairings work best with handicaps 10-15 strokes apart",
-            "Best Ball favors one elite + one high handicapper for maximum coverage",
-            "Singles matches within 5 handicap strokes produce the closest matches",
-            "Course slope above 130 increases importance of course management"
-        ];
-
-        // Display random stat on load - cycles through all 365 based on day of year
+        // Display random stat on load - uses calculated stats from match data
         function displayRandomStat() {
             const statElement = document.querySelector('.stat-of-day .stat-content');
             statElement.innerHTML = generateInsightfulStats();
