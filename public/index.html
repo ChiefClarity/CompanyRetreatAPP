@@ -677,12 +677,80 @@
         let matchData = {};
         let handicapData = {};
         
-        // Initialize handicapData with fallback values
+        // Initialize handicapData with fallback values ONLY if no data loaded from Excel
         function initializeHandicapData() {
             if (Object.keys(handicapData).length === 0) {
+                console.log('No handicap data loaded from Excel, using fallback data');
                 handicapData = { ...handicapDataFallback };
+            } else {
+                console.log('Handicap data loaded from Excel:', Object.keys(handicapData).length, 'players');
             }
         }
+        
+        // Validate and fix handicap data - use fallback for unrealistic values
+        function validateAndFixHandicapData() {
+            console.log('Validating handicap data...');
+            
+            Object.entries(handicapData).forEach(([playerName, yearData]) => {
+                Object.entries(yearData).forEach(([year, hcp]) => {
+                    // Check for unrealistic handicap values
+                    if (hcp > 50 || hcp < -5) {
+                        console.log(`Invalid handicap for ${playerName} in ${year}: ${hcp}`);
+                        
+                        // Use fallback data if available
+                        if (handicapDataFallback[playerName] && handicapDataFallback[playerName][year] !== undefined) {
+                            const fallbackHcp = handicapDataFallback[playerName][year];
+                            console.log(`  Using fallback value: ${fallbackHcp}`);
+                            handicapData[playerName][year] = fallbackHcp;
+                        } else {
+                            // Remove invalid value
+                            delete handicapData[playerName][year];
+                        }
+                    }
+                });
+            });
+            
+            // Also ensure key players have data from fallback if missing
+            const keyPlayers = ['Pete Cabrera', 'Jordan Portal', 'Danny Yanez', 'Javi Portal'];
+            keyPlayers.forEach(playerName => {
+                if (handicapDataFallback[playerName]) {
+                    if (!handicapData[playerName]) {
+                        handicapData[playerName] = {};
+                    }
+                    Object.entries(handicapDataFallback[playerName]).forEach(([year, hcp]) => {
+                        if (handicapData[playerName][year] === undefined || 
+                            handicapData[playerName][year] > 50 || 
+                            handicapData[playerName][year] < -5) {
+                            console.log(`Setting ${playerName} ${year} handicap to fallback value: ${hcp}`);
+                            handicapData[playerName][year] = hcp;
+                        }
+                    });
+                }
+            });
+            
+            console.log('Handicap data validation complete');
+        }
+        
+        // Get player's handicap for a specific year
+        function getPlayerHandicap(playerName, year) {
+            if (handicapData[playerName] && handicapData[playerName][year] !== undefined) {
+                return handicapData[playerName][year];
+            }
+            return null;
+        }
+        
+        // Format handicap for display
+        function formatHandicap(hcp, playerName) {
+            if (hcp === null || hcp === undefined) return 'N/A';
+            
+            // Only Jordan Portal gets plus handicaps displayed with +
+            if (playerName === 'Jordan Portal' && hcp <= 3.5) {
+                return '+' + Math.abs(hcp);
+            }
+            
+            return hcp.toString();
+        }
+        
         let tournamentData = {
             players: [],
             captainHistory: []
@@ -824,19 +892,105 @@
                     // Pass raw data to processYearData
                     matchData[year] = processYearData(year, rawData);
                     
-                    // Extract handicap data from column M (index 12)
+                    // Extract handicap data - need to find the correct column
+                    console.log(`\nExtracting handicaps for ${year}...`);
+                    
+                    // Debug: Let's check what's in the first few rows to find the HCP column
+                    if (rawData.length > 0) {
+                        console.log('All headers:', rawData[0]);
+                        if (rawData.length > 1) {
+                            console.log('First player row:', rawData[1]);
+                        }
+                    }
+                    
+                    // Look for HCP column in headers - check columns in likely locations
+                    // Based on the data structure: columns A-O are player data, P-Y scrambles, etc.
+                    // HCP is likely in columns L, M, or N (indices 11, 12, 13)
+                    let hcpColumnIndex = -1;
+                    const likelyColumns = [11, 12, 13, 14]; // L, M, N, O
+                    
+                    for (let i of likelyColumns) {
+                        if (rawData[0] && rawData[0][i]) {
+                            const header = rawData[0][i];
+                            console.log(`Checking column ${i} (${String.fromCharCode(65 + i)}): "${header}"`);
+                            if (header && (header.toString().toUpperCase().includes('HCP') || 
+                                         header.toString().toUpperCase().includes('HANDICAP') ||
+                                         header.toString().toUpperCase() === 'HC' ||
+                                         header.toString().toUpperCase() === 'HCP' ||
+                                         header.toString().toUpperCase() === 'HDCP')) {
+                                hcpColumnIndex = i;
+                                console.log(`Found HCP column at index ${i} (column ${String.fromCharCode(65 + i)}): "${header}"`);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // If still not found, check ALL columns
+                    if (hcpColumnIndex === -1 && rawData[0]) {
+                        for (let i = 0; i < rawData[0].length && i < 15; i++) {
+                            const header = rawData[0][i];
+                            if (header && (header.toString().toUpperCase().includes('HCP') || 
+                                         header.toString().toUpperCase().includes('HANDICAP') ||
+                                         header.toString().toUpperCase() === 'HC' ||
+                                         header.toString().toUpperCase() === 'HCP' ||
+                                         header.toString().toUpperCase() === 'HDCP')) {
+                                hcpColumnIndex = i;
+                                console.log(`Found HCP column at index ${i}: "${header}"`);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // If we didn't find HCP column, default to column M (index 12)
+                    if (hcpColumnIndex === -1) {
+                        hcpColumnIndex = 12; // Column M
+                        console.log(`HCP column not found. Defaulting to column M (index ${hcpColumnIndex})`);
+                    }
+                    
+                    // Debug: Log the column we're using and sample values
+                    if (rawData.length > 5) {
+                        console.log(`Using column ${hcpColumnIndex} (${String.fromCharCode(65 + hcpColumnIndex)}) for handicaps`);
+                        console.log('Sample values from this column:');
+                        for (let i = 1; i <= 5 && i < rawData.length; i++) {
+                            console.log(`  Row ${i+1}: "${rawData[i][hcpColumnIndex]}"`);
+                        }
+                        
+                        // Also log Pete Cabrera's row specifically
+                        for (let i = 1; i < rawData.length && i < 26; i++) {
+                            if (rawData[i][0] === 'Pete Cabrera') {
+                                console.log(`Pete Cabrera's full row (first 15 columns):`, rawData[i].slice(0, 15));
+                                break;
+                            }
+                        }
+                    }
+                    
                     for (let i = 1; i < rawData.length && i < 26; i++) { // Players are in rows 2-25
                         const row = rawData[i];
                         const playerName = row[0]; // Column A
-                        const hcp = row[12]; // Column M is HCP
+                        const hcp = row[hcpColumnIndex]; // HCP column
                         
-                        if (playerName && hcp !== undefined && hcp !== '') {
+                        if (playerName && hcp !== undefined && hcp !== '' && hcp !== null) {
                             if (!handicapData[playerName]) {
                                 handicapData[playerName] = {};
                             }
-                            handicapData[playerName][year] = parseFloat(hcp) || 0;
+                            
+                            // Handle various handicap formats
+                            let hcpValue = 0;
+                            const hcpStr = hcp.toString().trim();
+                            
+                            // Remove any + sign (we'll add it back for display if needed)
+                            const cleanHcp = hcpStr.replace('+', '');
+                            hcpValue = parseFloat(cleanHcp) || 0;
+                            
+                            handicapData[playerName][year] = hcpValue;
+                            
+                            // Debug: Log specific players' data
+                            if (playerName === 'Pete Cabrera' || playerName === 'Jordan Portal') {
+                                console.log(`${playerName} ${year}: Column ${hcpColumnIndex} value="${hcp}" parsed=${hcpValue}`);
+                            }
                         }
                     }
+                    console.log(`Loaded ${Object.keys(handicapData).length} players' handicaps for ${year}`);
                 }
                 
                 // Update tournament years data
@@ -868,6 +1022,9 @@
                 
                 // Initialize handicap data with fallback if needed
                 initializeHandicapData();
+                
+                // Validate and fix handicap data
+                validateAndFixHandicapData();
                 
                 // Initialize the app with the loaded data
                 showTab('2025');
@@ -1432,33 +1589,56 @@
 
         // Complete player handicap progression data (will be loaded from Excel)
         const handicapDataFallback = {
-            "Danny Yanez": { 2018: 16, 2019: 14, 2020: 12, 2021: 10, 2022: 9, 2023: 8.5, 2024: 8, 2025: 8 },
-            "Jordan Portal": { 2019: 0.5, 2020: 0, 2021: -0.5, 2022: -1, 2023: -2, 2024: -2.5, 2025: -3.1 },
-            "Javi Portal": { 2018: 0, 2019: 0, 2020: 0.5, 2021: 0.5, 2022: 1, 2023: 1, 2024: 1.5, 2025: 1.5 },
-            "Carlos Enjamio": { 2018: 25, 2019: 22, 2020: 20, 2021: 18, 2022: 16, 2023: 15, 2024: 14, 2025: 13.3 },
-            "Victor Riobueno": { 2018: 22.1, 2019: 20, 2020: 19, 2021: 17.5, 2022: 16, 2023: 15.5, 2024: 15, 2025: 14.4 },
-            "Pete Cabrera": { 2018: 8, 2019: 7.5, 2020: 7, 2021: 6.5, 2022: 6.1, 2023: 7, 2024: 7.5, 2025: 8 },
-            "Alex Lastra": { 2019: 26.5, 2020: 24, 2021: 23, 2022: 22, 2023: 21, 2024: 20.5 },
-            "Lawrence Pardo": { 2019: 23, 2020: 21, 2021: 19, 2022: 17, 2023: 16, 2024: 15, 2025: 14 },
-            "Michael Quintana": { 2020: 16, 2021: 15, 2022: 14, 2023: 13.5, 2024: 13, 2025: 12.5 },
-            "Jo Noy": { 2020: 16, 2021: 15, 2022: 14, 2023: 13, 2024: 12, 2025: 11.5 },
-            "Shawn Noy": { 2021: 20, 2022: 19, 2023: 18.5, 2024: 18, 2025: 17.5 },
-            "Boogie Lastra": { 2021: 28, 2022: 26, 2023: 24.5, 2024: 23.5, 2025: 22.8 },
-            "Carlos Alfonso": { 2021: 20, 2022: 19, 2023: 18, 2024: 17, 2025: 16.5 },
+            // Core players with complete data
+            "Danny Yanez": { 2018: 16, 2019: 14, 2020: 12, 2021: 10, 2022: 14.1, 2023: 11.9, 2024: 12, 2025: 8 },
+            "Jordan Portal": { 2018: 0.5, 2019: 0, 2020: 0, 2021: 0, 2022: 0, 2023: 1.4, 2024: 1, 2025: 3.1 },
+            "Javi Portal": { 2018: 0, 2019: 0, 2020: 0.5, 2021: 0.5, 2022: 0.1, 2023: 0, 2024: 1.2, 2025: 1.5 },
+            "Carlos Enjamio": { 2018: 25, 2019: 22, 2020: 20, 2021: 18, 2022: 18.3, 2023: 18.3, 2024: 16, 2025: 13.3 },
+            "Victor Riobueno": { 2018: 22.1, 2019: 20, 2020: 19, 2021: 17.5, 2022: 17.7, 2023: 16.5, 2024: 16.6, 2025: 14.4 },
+            "Pete Cabrera": { 2018: 8, 2019: 7.5, 2020: 7, 2021: 6.5, 2022: 7, 2023: 8, 2024: 8, 2025: 6.1 },
+            
+            // Players with partial data
+            "Alex Lastra": { 2018: 26.5, 2019: 26, 2020: 25.5, 2021: 25, 2022: 24.5, 2023: 24.8, 2024: 20.5 },
+            "Lawrence Pardo": { 2019: 23, 2020: 21, 2021: 19, 2022: 18, 2023: 18, 2024: 16.3, 2025: 17.2 },
+            "Michael Quintana": { 2020: 16, 2021: 15, 2022: 18, 2023: 18, 2024: 17, 2025: 17 },
+            "Jo Noy": { 2020: 16, 2021: 15, 2022: 20.5, 2023: 20.5, 2024: 12, 2025: 11.5 },
+            "Shawn Noy": { 2021: 20, 2022: 16, 2023: 16, 2024: 18, 2025: 17.5 },
+            "Boogie Lastra": { 2021: 28, 2022: 26, 2023: 27.9, 2024: 23.1, 2025: 22.8 },
+            "Carlos Alfonso": { 2021: 20, 2022: 20, 2023: 20.6, 2024: 22.6, 2025: 16.5 },
             "Stefano Diaz": { 2024: 2.5, 2025: 0.5 },
-            "Andrew Guasch": { 2024: 10, 2025: 9 },
-            "Javi Vargas": { 2019: 20, 2020: 19.5, 2021: 19, 2022: 18.5, 2023: 18, 2024: 17.5, 2025: 17 },
-            "Mario Martinez": { 2021: 10, 2022: 9.5, 2023: 9, 2024: 8.5 },
-            "David Del Cristo": { 2021: 25, 2022: 24, 2023: 23, 2024: 22 },
-            "Eric Diaz": { 2022: 25, 2023: 24.5, 2024: 24, 2025: 24 },
-            "Mauricio Restrepo": { 2020: 30, 2021: 28, 2022: 26, 2023: 25, 2024: 24, 2025: 23 },
-            "Roger De Armas": { 2024: 17, 2025: 16 },
-            "Luis Sandoval": { 2023: 15, 2024: 14, 2025: 13 },
-            "Kevin Samlut": { 2024: 20, 2025: 19 },
-            "Ricky Escobar": { 2022: 18, 2023: 17, 2024: 16, 2025: 15 },
-            "Joey Pinto": { 2025: 30 },
-            "Javi Salas": { 2022: 12, 2023: 11, 2024: 10, 2025: 9.5 },
-            "Skippy Ramirez": { 2019: 15, 2020: 14, 2025: 16 }
+            "Andrew Guasch": { 2023: 12, 2024: 13, 2025: 9 },
+            "Javi Vargas": { 2019: 20, 2020: 19.5, 2021: 19, 2022: 24, 2023: 24, 2024: 29, 2025: 17 },
+            "Mario Martinez": { 2021: 10, 2022: 11.9, 2023: 11.9, 2024: 8.5 },
+            "David Del Cristo": { 2021: 25, 2022: 27, 2023: 27, 2024: 22 },
+            "Eric Diaz": { 2022: 26.5, 2023: 23, 2024: 24, 2025: 24 },
+            "Mauricio Restrepo": { 2020: 30, 2021: 28, 2022: 22.3, 2023: 22.3, 2024: 24.8, 2025: 25 },
+            "Roger De Armas": { 2024: 20.3, 2025: 19 },
+            "Luis Sandoval": { 2023: 21, 2024: 17, 2025: 15 },
+            "Kevin Samlut": { 2022: 25.6, 2023: 25.6, 2024: 25, 2025: 24 },
+            "Ricky Escobar": { 2022: 18, 2023: 0, 2024: 0, 2025: 15 },
+            "Joey Pinto": { 2024: 16, 2025: 15 },
+            "Javi Salas": { 2022: 16.4, 2023: 16.2, 2024: 10, 2025: 12 },
+            "Victor Garcia": { 2022: 25, 2023: 23, 2024: 19, 2025: 19 },
+            "Stuart Briggle": { 2022: 18.9, 2023: 17, 2024: 13.8 },
+            "Wes Briggle": { 2022: 20.7, 2023: 20, 2024: 17 },
+            "Matt Barkett": { 2022: 15.9, 2023: 15.9 },
+            "Salo Iza": { 2025: 8.9 },
+            "Mikey Newmeyer": { 2024: 13.5, 2025: 13.5 },
+            "Mauricio Baca": { 2025: 24 },
+            "Robert Vazquez": { 2025: 23 },
+            "Mooser Rodriguez": { 2023: 38, 2025: 37 },
+            "Augie De Goytisolo": { 2018: 22, 2019: 22, 2020: 22, 2021: 22, 2022: 22, 2023: 22, 2024: 22, 2025: 22 },
+            
+            // Players with estimated handicaps (no data from 2022-2025)
+            "Skippy Ramirez": { 2018: 36, 2019: 36, 2020: 36, 2025: 16 },
+            "CJ Osbourne": { 2019: 15 },
+            "Brendan Areces": { 2020: 36, 2021: 36 },
+            
+            // Other players with limited data
+            "Alex Uribarri": { 2022: 15, 2023: 15 },
+            "Ernesto Ibanez": { 2022: 40, 2023: 40, 2024: 29.2 },
+            "Peter Endejan": { 2022: 36, 2023: 36 },
+            "Andrew Areces": { 2024: 31 }
         };
 
         // Head-to-head records
@@ -1946,6 +2126,7 @@
         }
 
         // Calculate strokes given in match based on handicaps and format
+        // Note: Plus handicaps are positive numbers (e.g., +3.1 means 3.1 better than scratch)
         function calculateStrokesGiven(player1, player2, year, format) {
             const hcp1 = handicapData[player1] && handicapData[player1][year] || 0;
             const hcp2 = handicapData[player2] && handicapData[player2][year] || 0;
@@ -2347,8 +2528,15 @@
 
 
         function show2025Dashboard(container) {
+            // Check if match data is loaded
+            if (!matchData || !matchData[2025]) {
+                container.innerHTML = '<h2>2025 Dashboard</h2><p>Loading data...</p>';
+                return;
+            }
+            
+            const yearData = matchData[2025];
             container.innerHTML = `
-                <h2 style="margin-bottom: 2rem;">2025 Company Retreat - Team Pardo Victory</h2>
+                <h2 style="margin-bottom: 2rem;">2025 Company Retreat - ${yearData.captains ? Object.values(yearData.captains).join(' vs ') : 'Team Competition'}</h2>
                 
                 <div class="metric-card">
                     <div class="metric-title">📊 Key Storylines from CR8</div>
@@ -2408,10 +2596,190 @@
                         <p>• <strong>Jordan Portal (+3.1)</strong> became the first player to compete while giving strokes to every opponent</p>
                         <p>• <strong>Perfect Friday:</strong> Team Pardo nearly swept Scrambles 6-0 (lost only 1 match by 2&1)</p>
                         <p>• <strong>Pardo Pattern:</strong> Lawrence Pardo improved to 2-0 in Scrambles with different partners each year</p>
-                        <p>• <strong>Rookie Struggle:</strong> Joey Pinto (0-3) joined the exclusive winless rookie club</p>
+                        <p>• <strong>Second Year Success:</strong> Joey Pinto (1-2) earned his first CR victory after going winless in 2024</p>
                     </div>
                 </div>
             `;
+        }
+
+        // Name mapping to handle abbreviated names in match data
+        function getFullPlayerName(shortName, allPlayers) {
+            // Direct match
+            if (allPlayers.has(shortName)) return shortName;
+            
+            // Common mappings
+            const nameMap = {
+                'Cabrera': 'Pete Cabrera',
+                'Alfonso': 'Carlos Alfonso',
+                'B. Lastra': 'Boogie Lastra',
+                'A. Lastra': 'Alex Lastra',
+                'Martinez': 'Mario Martinez',
+                'S. Diaz': 'Stefano Diaz',
+                'E. Diaz': 'Eric Diaz',
+                'J. Portal': 'Javi Portal',
+                'Jo. Portal': 'Jordan Portal',
+                'Yanez': 'Danny Yanez',
+                'Noy': 'Jo Noy',
+                'S. Noy': 'Shawn Noy',
+                'Pardo': 'Lawrence Pardo',
+                'Salas': 'Javi Salas',
+                'Quintana': 'Michael Quintana',
+                'Enjamio': 'Carlos Enjamio',
+                'Riobueno': 'Victor Riobueno',
+                'Vargas': 'Javi Vargas',
+                'Del Cristo': 'David Del Cristo',
+                'Restrepo': 'Mauricio Restrepo',
+                'Guasch': 'Andrew Guasch',
+                'De Armas': 'Roger De Armas',
+                'Ramirez': 'Skippy Ramirez',
+                'Pinto': 'Joey Pinto'
+            };
+            
+            if (nameMap[shortName]) return nameMap[shortName];
+            
+            // Try to find by last name
+            for (const fullName of allPlayers) {
+                const parts = fullName.split(' ');
+                const lastName = parts[parts.length - 1];
+                if (lastName === shortName) return fullName;
+            }
+            
+            return shortName; // Return original if no match found
+        }
+        
+        // Universal function to extract player stats from matchData
+        function getPlayerStatsFromMatchData(playerName) {
+            const stats = {
+                scrambleRecord: { W: 0, L: 0, T: 0 },
+                bestBallRecord: { W: 0, L: 0, T: 0 },
+                singlesRecord: { W: 0, L: 0, T: 0 },
+                totalRecord: { W: 0, L: 0, T: 0 },
+                yearsPlayed: [],
+                opponents: [],
+                matchDetails: []
+            };
+            
+            // Helper function to check if a name matches
+            const isPlayerInMatch = (matchName, targetName) => {
+                if (matchName === targetName) return true;
+                
+                // Check if it's a last name match
+                const targetParts = targetName.split(' ');
+                const targetLastName = targetParts[targetParts.length - 1];
+                if (matchName === targetLastName) return true;
+                
+                // Check specific mappings
+                const mappings = {
+                    'J. Portal': 'Javi Portal',
+                    'Jo. Portal': 'Jordan Portal',
+                    'B. Lastra': 'Boogie Lastra',
+                    'A. Lastra': 'Alex Lastra',
+                    'S. Diaz': 'Stefano Diaz',
+                    'E. Diaz': 'Eric Diaz',
+                    'S. Noy': 'Shawn Noy'
+                };
+                
+                return mappings[matchName] === targetName;
+            };
+            
+            Object.entries(matchData).forEach(([year, yearData]) => {
+                let playedThisYear = false;
+                
+                // Parse scrambles
+                yearData.scrambleResults?.forEach(match => {
+                    const captainKeys = Object.keys(yearData.captains || {});
+                    // Check if player is on first captain's team (result is from their perspective)
+                    const firstCaptain = captainKeys[0];
+                    const secondCaptain = captainKeys[1];
+                    
+                    if (match[firstCaptain] && Array.isArray(match[firstCaptain]) && match[firstCaptain].some(name => isPlayerInMatch(name, playerName))) {
+                        playedThisYear = true;
+                        // Player is on first team, result is correct as-is
+                        if (match.result === 'W') stats.scrambleRecord.W++;
+                        else if (match.result === 'L') stats.scrambleRecord.L++;
+                        else if (match.result === 'T') stats.scrambleRecord.T++;
+                        
+                        if (match[secondCaptain]) {
+                            stats.opponents.push(...match[secondCaptain]);
+                        }
+                    } else if (match[secondCaptain] && Array.isArray(match[secondCaptain]) && match[secondCaptain].some(name => isPlayerInMatch(name, playerName))) {
+                        playedThisYear = true;
+                        // Player is on second team, need to flip result
+                        if (match.result === 'W') stats.scrambleRecord.L++; // They lost
+                        else if (match.result === 'L') stats.scrambleRecord.W++; // They won
+                        else if (match.result === 'T') stats.scrambleRecord.T++;
+                        
+                        if (match[firstCaptain]) {
+                            stats.opponents.push(...match[firstCaptain]);
+                        }
+                    }
+                });
+                
+                // Parse best ball
+                yearData.bestBallResults?.forEach(match => {
+                    const captainKeys = Object.keys(yearData.captains || {});
+                    const firstCaptain = captainKeys[0];
+                    const secondCaptain = captainKeys[1];
+                    
+                    if (match[firstCaptain] && Array.isArray(match[firstCaptain]) && match[firstCaptain].some(name => isPlayerInMatch(name, playerName))) {
+                        // Player is on first team, result is correct as-is
+                        if (match.result === 'W') stats.bestBallRecord.W++;
+                        else if (match.result === 'L') stats.bestBallRecord.L++;
+                        else if (match.result === 'T') stats.bestBallRecord.T++;
+                    } else if (match[secondCaptain] && Array.isArray(match[secondCaptain]) && match[secondCaptain].some(name => isPlayerInMatch(name, playerName))) {
+                        // Player is on second team, need to flip result
+                        if (match.result === 'W') stats.bestBallRecord.L++; // They lost
+                        else if (match.result === 'L') stats.bestBallRecord.W++; // They won
+                        else if (match.result === 'T') stats.bestBallRecord.T++;
+                    }
+                });
+                
+                // Parse singles
+                yearData.singlesResults?.forEach(match => {
+                    const captainKeys = Object.keys(yearData.captains || {});
+                    const firstCaptain = captainKeys[0];
+                    const secondCaptain = captainKeys[1];
+                    
+                    if (isPlayerInMatch(match[firstCaptain], playerName)) {
+                        // Player is on first team, result is correct as-is
+                        if (match.result === 'W') stats.singlesRecord.W++;
+                        else if (match.result === 'L') stats.singlesRecord.L++;
+                        else if (match.result === 'T') stats.singlesRecord.T++;
+                        
+                        stats.matchDetails.push({
+                            year: year,
+                            format: 'singles',
+                            opponent: match[secondCaptain],
+                            result: match.result,
+                            score: match.score
+                        });
+                    } else if (isPlayerInMatch(match[secondCaptain], playerName)) {
+                        // Player is on second team, need to flip result
+                        if (match.result === 'W') stats.singlesRecord.L++; // They lost
+                        else if (match.result === 'L') stats.singlesRecord.W++; // They won
+                        else if (match.result === 'T') stats.singlesRecord.T++;
+                        
+                        stats.matchDetails.push({
+                            year: year,
+                            format: 'singles',
+                            opponent: match[firstCaptain],
+                            result: match.result === 'W' ? 'L' : match.result === 'L' ? 'W' : 'T',
+                            score: match.score
+                        });
+                    }
+                });
+                
+                if (playedThisYear) {
+                    stats.yearsPlayed.push(year);
+                }
+            });
+            
+            // Calculate totals
+            stats.totalRecord.W = stats.scrambleRecord.W + stats.bestBallRecord.W + stats.singlesRecord.W;
+            stats.totalRecord.L = stats.scrambleRecord.L + stats.bestBallRecord.L + stats.singlesRecord.L;
+            stats.totalRecord.T = stats.scrambleRecord.T + stats.bestBallRecord.T + stats.singlesRecord.T;
+            
+            return stats;
         }
 
         function showHistory(container) {
@@ -2594,68 +2962,68 @@
         }
 
         function showPlayerAnalytics(container) {
-            // Check if players data is loaded
-            if (!tournamentData.players || tournamentData.players.length === 0) {
-                container.innerHTML = `
-                    <h2>Player Analytics</h2>
-                    <div class="metric-card">
-                        <p>No player data available. Please ensure the Excel file is loaded correctly.</p>
-                    </div>
-                `;
+            // Check if match data is loaded
+            if (!matchData || Object.keys(matchData).length === 0) {
+                container.innerHTML = '<h2>Player Analytics</h2><p>Loading data...</p>';
                 return;
             }
             
-            let selectedPlayer = tournamentData.players[0].name || "Danny Yanez";
-            
-            const renderPlayerAnalytics = (playerName) => {
-                const player = tournamentData.players.find(p => p.name === playerName);
-                if (!player) return;
+            // Get all unique players from matchData
+            const allPlayers = new Set();
+            Object.values(matchData).forEach(yearData => {
+                // Add from team rosters
+                if (yearData.teamPardo) yearData.teamPardo.forEach(p => allPlayers.add(p));
+                if (yearData.teamSalas) yearData.teamSalas.forEach(p => allPlayers.add(p));
+                if (yearData.teamVictor) yearData.teamVictor.forEach(p => allPlayers.add(p));
+                if (yearData.teamCarlos) yearData.teamCarlos.forEach(p => allPlayers.add(p));
                 
-                // Calculate format-specific records
-                let scrambleRecord = { wins: 0, losses: 0, ties: 0 };
-                let bestBallRecord = { wins: 0, losses: 0, ties: 0 };
-                let singlesRecord = { wins: 0, losses: 0, ties: 0 };
-                
-                // Process each year's data for this player
-                Object.entries(matchData).forEach(([year, yearData]) => {
-                    if (yearData.scrambleResults) {
-                        yearData.scrambleResults.forEach(match => {
-                            if (match.pardo.includes(playerName.split(' ')[1]) || match.salas.includes(playerName.split(' ')[1])) {
-                                if (match.result === 'W') scrambleRecord.wins++;
-                                else if (match.result === 'L') scrambleRecord.losses++;
-                                else scrambleRecord.ties++;
+                // Add from match results
+                ['scrambleResults', 'bestBallResults', 'singlesResults'].forEach(format => {
+                    yearData[format]?.forEach(match => {
+                        Object.values(match).forEach(value => {
+                            if (Array.isArray(value)) {
+                                value.forEach(name => {
+                                    if (typeof name === 'string' && name.length > 1) allPlayers.add(name);
+                                });
+                            } else if (typeof value === 'string' && value.length > 1 && !['W', 'L', 'T'].includes(value) && !value.includes('&')) {
+                                allPlayers.add(value);
                             }
                         });
-                    }
-                    // Similar for bestBall and singles...
+                    });
                 });
+            });
+            
+            const playerList = Array.from(allPlayers).sort();
+            let selectedPlayer = playerList[0] || "Danny Yanez";
+            
+            const renderPlayerAnalytics = (playerName) => {
+                const stats = getPlayerStatsFromMatchData(playerName);
                 
-                const handicapProgression = handicapData[playerName] || {};
+                const totalMatches = stats.totalRecord.W + stats.totalRecord.L + stats.totalRecord.T;
+                const winRate = totalMatches > 0 ? (stats.totalRecord.W / totalMatches * 100).toFixed(1) : 0;
                 
                 let html = `
                     <h2 style="margin-bottom: 1rem;">Player Analytics</h2>
                     
                     <div style="margin-bottom: 2rem;">
                         <select onchange="selectPlayer(this.value)" style="padding: 0.5rem; font-size: 1rem; border-radius: 0.5rem;">
-                            ${tournamentData.players.map(p => `
-                                <option value="${p.name}" ${p.name === playerName ? 'selected' : ''}>${p.name}</option>
+                            ${playerList.map(p => `
+                                <option value="${p}" ${p === playerName ? 'selected' : ''}>${p}</option>
                             `).join('')}
                         </select>
                     </div>
                     
                     <div class="player-card" style="margin-bottom: 2rem;">
-                        <div class="rank-badge rank-${player.rank}">#${player.rank}</div>
-                        <h3 class="player-name">${player.name}</h3>
+                        <h3 class="player-name">${playerName}</h3>
                         <div class="record">
-                            <span class="wins">W: ${player.wins}</span>
-                            <span class="losses">L: ${player.losses}</span>
-                            <span class="ties">T: ${player.ties}</span>
+                            <span class="wins">W: ${stats.totalRecord.W}</span>
+                            <span class="losses">L: ${stats.totalRecord.L}</span>
+                            <span class="ties">T: ${stats.totalRecord.T}</span>
                         </div>
                         <div style="margin-top: 1rem;">
-                            <strong>Win Rate:</strong> ${((player.wins / (player.wins + player.losses + player.ties)) * 100).toFixed(1)}%<br>
-                            <strong>CRs Played:</strong> ${player.crs}<br>
-                            <strong>Rating:</strong> ${player.rating}<br>
-                            ${player.perfectAttendance ? '<span class="perfect-attendance">Perfect Attendance</span>' : ''}
+                            <strong>Win Rate:</strong> ${winRate}%<br>
+                            <strong>CRs Played:</strong> ${stats.yearsPlayed.length}<br>
+                            <strong>Years:</strong> ${stats.yearsPlayed.join(', ')}<br>
                         </div>
                     </div>
                     
@@ -2663,40 +3031,25 @@
                         <div class="metric-title">📊 Format Breakdown</div>
                         <div class="metric-item">
                             <span><strong>Scrambles</strong></span>
-                            <span>${scrambleRecord.wins}-${scrambleRecord.losses}-${scrambleRecord.ties}</span>
+                            <span>${stats.scrambleRecord.W}-${stats.scrambleRecord.L}-${stats.scrambleRecord.T}</span>
                         </div>
                         <div class="metric-item">
                             <span><strong>Best Ball</strong></span>
-                            <span>${bestBallRecord.wins}-${bestBallRecord.losses}-${bestBallRecord.ties}</span>
+                            <span>${stats.bestBallRecord.W}-${stats.bestBallRecord.L}-${stats.bestBallRecord.T}</span>
                         </div>
                         <div class="metric-item">
                             <span><strong>Singles</strong></span>
-                            <span>${singlesRecord.wins}-${singlesRecord.losses}-${singlesRecord.ties}</span>
+                            <span>${stats.singlesRecord.W}-${stats.singlesRecord.L}-${stats.singlesRecord.T}</span>
                         </div>
-                    </div>
-                    
-                    <div class="metric-card">
-                        <div class="metric-title">📈 Handicap Progression</div>
-                        ${Object.entries(handicapProgression).map(([year, hcp]) => `
-                            <div class="metric-item">
-                                <span>${year}</span>
-                                <span>${hcp > 0 ? hcp : `+${Math.abs(hcp)}`}</span>
-                            </div>
-                        `).join('')}
-                        ${Object.keys(handicapProgression).length > 1 ? `
-                            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
-                                <strong>Total Improvement:</strong> ${(handicapProgression[Math.min(...Object.keys(handicapProgression))] - handicapProgression[Math.max(...Object.keys(handicapProgression))]).toFixed(1)} strokes
-                            </div>
-                        ` : ''}
                     </div>
                     
                     <div class="metric-card">
                         <div class="metric-title">🏆 Notable Achievements</div>
                         <div style="padding: 1rem; line-height: 1.8;">
-                            ${player.name === 'Danny Yanez' ? '• 5-year winning streak (2020-2024)<br>• Best overall record (19-5-0)<br>• 3-0 in 2025<br>' : ''}
-                            ${player.name === 'Jordan Portal' ? '• Only plus-handicap player<br>• Improved from 0.5 to +3.1<br>• Must give strokes to everyone<br>' : ''}
-                            ${player.perfectAttendance ? '• Played in all 8 Company Retreats<br>' : ''}
-                            ${player.neverWon ? '• Seeking first championship<br>' : ''}
+                            ${stats.yearsPlayed.length === 8 ? '• Played in all 8 Company Retreats<br>' : ''}
+                            ${stats.totalRecord.W === 0 ? '• Seeking first victory<br>' : ''}
+                            ${stats.totalRecord.W > 15 ? '• Elite winner with ' + stats.totalRecord.W + ' career victories<br>' : ''}
+                            ${winRate > 70 ? '• Outstanding ' + winRate + '% career win rate<br>' : ''}
                         </div>
                     </div>
                 `;
@@ -2713,165 +3066,145 @@
         }
 
         function showAdvancedAnalytics(container) {
-            // Calculate strength of schedule for all players
-            const calculateAllStrengthOfSchedule = () => {
-                const sosData = {};
+            // Check if match data is loaded
+            if (!matchData || Object.keys(matchData).length === 0) {
+                container.innerHTML = '<h2>Advanced Analytics</h2><p>Loading data...</p>';
+                return;
+            }
+            
+            // Calculate real analytics from matchData
+            const calculateCloseMatchStats = () => {
+                const closeMatchStats = {};
                 
-                tournamentData.players.forEach(player => {
-                    let totalOpponentHcp = 0;
-                    let matchCount = 0;
-                    let eliteOpponents = 0;
-                    
-                    // This would need full match history implementation
-                    // For now, using estimated data
-                    
-                    sosData[player.name] = {
-                        avgOpponentHcp: 15.5, // Placeholder
-                        toughestSchedule: false,
-                        easiestSchedule: false
-                    };
+                Object.entries(matchData).forEach(([year, yearData]) => {
+                    ['scrambleResults', 'bestBallResults', 'singlesResults'].forEach(format => {
+                        yearData[format]?.forEach(match => {
+                            if (match.score && (match.score.includes('2&1') || match.score.includes('1up'))) {
+                                // This is a close match
+                                Object.keys(yearData.captains || {}).forEach(captain => {
+                                    const players = match[captain];
+                                    if (players) {
+                                        const playerNames = Array.isArray(players) ? players : [players];
+                                        playerNames.forEach(player => {
+                                            if (!closeMatchStats[player]) {
+                                                closeMatchStats[player] = { W: 0, L: 0, T: 0 };
+                                            }
+                                            if (match.result === 'W') closeMatchStats[player].W++;
+                                            else if (match.result === 'L') closeMatchStats[player].L++;
+                                            else if (match.result === 'T') closeMatchStats[player].T++;
+                                        });
+                                    }
+                                });
+                            }
+                        });
+                    });
                 });
                 
-                return sosData;
+                return closeMatchStats;
             };
             
-            const sosData = calculateAllStrengthOfSchedule();
+            const closeMatchStats = calculateCloseMatchStats();
+            
+            // Calculate match counts by year
+            const matchCountsByYear = {};
+            Object.entries(matchData).forEach(([year, yearData]) => {
+                let totalMatches = 0;
+                if (yearData.scrambleResults) totalMatches += yearData.scrambleResults.length;
+                if (yearData.bestBallResults) totalMatches += yearData.bestBallResults.length;
+                if (yearData.singlesResults) totalMatches += yearData.singlesResults.length;
+                matchCountsByYear[year] = totalMatches;
+            });
+            
+            // Get top clutch performers
+            const clutchPerformers = Object.entries(closeMatchStats)
+                .filter(([name, stats]) => (stats.W + stats.L + stats.T) >= 2)
+                .map(([name, stats]) => {
+                    const total = stats.W + stats.L + stats.T;
+                    const winRate = total > 0 ? (stats.W / total * 100).toFixed(1) : 0;
+                    return { name, stats, total, winRate };
+                })
+                .sort((a, b) => b.winRate - a.winRate)
+                .slice(0, 5);
             
             container.innerHTML = `
                 <h2 style="margin-bottom: 2rem;">Advanced Analytics</h2>
                 
                 <div class="metric-card">
+                    <div class="metric-title">📊 Match Statistics by Year</div>
+                    ${Object.entries(matchCountsByYear).map(([year, count]) => `
+                        <div class="metric-item">
+                            <span>${year}</span>
+                            <span>${count} total matches</span>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                ${clutchPerformers.length > 0 ? `
+                <div class="metric-card">
                     <div class="metric-title">🎯 Clutch Performance Rating</div>
                     <p style="color: var(--text-muted); margin-bottom: 1rem;">
                         Win rate in matches decided by 2&1 or less:
                     </p>
-                    <div class="metric-item">
-                        <span>Danny Yanez</span>
-                        <span>87.5% (7-1) in close matches</span>
-                    </div>
-                    <div class="metric-item">
-                        <span>Lawrence Pardo</span>
-                        <span>75% (6-2) in close matches</span>
-                    </div>
-                    <div class="metric-item">
-                        <span>Michael Quintana</span>
-                        <span>71.4% (5-2) in close matches</span>
-                    </div>
-                    <div class="metric-item">
-                        <span>Carlos Enjamio</span>
-                        <span>66.7% (4-2) in close matches</span>
-                    </div>
-                    <div class="metric-item">
-                        <span>Pete Cabrera</span>
-                        <span>33.3% (3-6) in close matches</span>
-                    </div>
+                    ${clutchPerformers.map(p => `
+                        <div class="metric-item">
+                            <span>${p.name}</span>
+                            <span>${p.winRate}% (${p.stats.W}-${p.stats.L}${p.stats.T > 0 ? '-' + p.stats.T : ''}) in close matches</span>
+                        </div>
+                    `).join('')}
                 </div>
+                ` : ''}
 
+                
                 <div class="metric-card">
-                    <div class="metric-title">💪 Strength of Schedule Leaders</div>
-                    <p style="color: var(--text-muted); margin-bottom: 1rem;">
-                        Players who faced the toughest competition (avg opponent hcp):
-                    </p>
-                    <div class="metric-item">
-                        <span>1. Victor Riobueno</span>
-                        <span>Avg opponent: 8.2 hcp</span>
-                    </div>
-                    <div class="metric-item">
-                        <span>2. Boogie Lastra</span>
-                        <span>Avg opponent: 9.1 hcp</span>
-                    </div>
-                    <div class="metric-item">
-                        <span>3. Carlos Alfonso</span>
-                        <span>Avg opponent: 9.8 hcp</span>
-                    </div>
-                    <div class="metric-item">
-                        <span>4. Shawn Noy</span>
-                        <span>Avg opponent: 10.2 hcp</span>
-                    </div>
-                    <div class="metric-item">
-                        <span>5. Mario Martinez</span>
-                        <span>Avg opponent: 10.5 hcp</span>
-                    </div>
+                    <div class="metric-title">📈 Year-by-Year Champions</div>
+                    ${Object.entries(matchData)
+                        .filter(([year, data]) => data.finalScore)
+                        .sort(([a], [b]) => b - a)
+                        .map(([year, data]) => {
+                            const winningCaptain = Object.entries(data.captains || {}).find(([key, name]) => 
+                                data.finalScore && parseFloat(data.finalScore.split('-')[0]) > parseFloat(data.finalScore.split('-')[1])
+                            );
+                            return `
+                            <div class="metric-item">
+                                <span>${year} - ${winningCaptain ? winningCaptain[1] : 'Unknown'}</span>
+                                <span>${data.finalScore}</span>
+                            </div>
+                        `}).join('')}
                 </div>
-
+                
                 <div class="metric-card">
-                    <div class="metric-title">🍀 Lucky vs Unlucky Analysis</div>
-                    <p style="color: var(--text-muted); margin-bottom: 1rem;">
-                        Based on opponent performance vs their handicap:
-                    </p>
-                    <h4 style="color: var(--success); margin: 1rem 0 0.5rem;">Luckiest Players</h4>
-                    <div class="metric-item">
-                        <span>Andrew Guasch</span>
-                        <span>Opponents averaged +2.1 vs handicap</span>
-                    </div>
-                    <div class="metric-item">
-                        <span>Jo Noy</span>
-                        <span>Faced 3 opponents having "off" days</span>
-                    </div>
-                    
-                    <h4 style="color: var(--danger); margin: 1rem 0 0.5rem;">Unluckiest Players</h4>
-                    <div class="metric-item">
-                        <span>Shawn Noy</span>
-                        <span>Opponents averaged -1.8 vs handicap</span>
-                    </div>
-                    <div class="metric-item">
-                        <span>Mario Martinez</span>
-                        <span>Faced Danny Yanez in peak form</span>
-                    </div>
+                    <div class="metric-title">🏆 Most Matches Played</div>
+                    ${(() => {
+                        const matchCounts = {};
+                        Object.values(matchData).forEach(yearData => {
+                            ['scrambleResults', 'bestBallResults', 'singlesResults'].forEach(format => {
+                                yearData[format]?.forEach(match => {
+                                    Object.values(match).forEach(value => {
+                                        if (Array.isArray(value)) {
+                                            value.forEach(name => {
+                                                if (typeof name === 'string' && name.length > 1) {
+                                                    matchCounts[name] = (matchCounts[name] || 0) + 1;
+                                                }
+                                            });
+                                        } else if (typeof value === 'string' && value.length > 1 && !['W', 'L', 'T'].includes(value) && !value.includes('&')) {
+                                            matchCounts[value] = (matchCounts[value] || 0) + 1;
+                                        }
+                                    });
+                                });
+                            });
+                        });
+                        
+                        return Object.entries(matchCounts)
+                            .sort(([,a], [,b]) => b - a)
+                            .slice(0, 5)
+                            .map(([name, count]) => `
+                                <div class="metric-item">
+                                    <span>${name}</span>
+                                    <span>${count} matches</span>
+                                </div>
+                            `).join('');
+                    })()}
                 </div>
-
-                <div class="metric-card">
-                    <div class="metric-title">🔥 Hot Streaks & Cold Spells</div>
-                    <div class="metric-item">
-                        <span>Longest Win Streak</span>
-                        <span>Danny Yanez - 8 matches (2022-2024)</span>
-                    </div>
-                    <div class="metric-item">
-                        <span>Current Hot Players</span>
-                        <span>A. Guasch (5-1 last 6), Jo. Portal (6-2 last 8)</span>
-                    </div>
-                    <div class="metric-item">
-                        <span>Due for a Win</span>
-                        <span>Joey Pinto (0-3), David Del Cristo (1-5 last 6)</span>
-                    </div>
-                </div>
-
-                <div class="metric-card">
-                    <div class="metric-title">📊 Format Specialists</div>
-                    <div class="metric-item">
-                        <span>Scramble Specialist</span>
-                        <span>Danny Yanez (87.5% win rate)</span>
-                    </div>
-                    <div class="metric-item">
-                        <span>Best Ball Expert</span>
-                        <span>Jordan Portal (81.3% win rate)</span>
-                    </div>
-                    <div class="metric-item">
-                        <span>Singles Ace</span>
-                        <span>Alex Lastra (80% win rate)</span>
-                    </div>
-                </div>
-
-                <div class="metric-card">
-                    <div class="metric-title">🎲 Upset Probability Matrix</div>
-                    <p style="color: var(--text-muted); margin-bottom: 1rem;">
-                        Based on handicap differentials and historical data:
-                    </p>
-                    <div class="metric-item">
-                        <span>5-10 strokes given</span>
-                        <span>Favorite wins 72%</span>
-                    </div>
-                    <div class="metric-item">
-                        <span>11-15 strokes given</span>
-                        <span>Favorite wins 64%</span>
-                    </div>
-                    <div class="metric-item">
-                        <span>16-20 strokes given</span>
-                        <span>Favorite wins 58%</span>
-                    </div>
-                    <div class="metric-item">
-                        <span>20+ strokes given</span>
-                        <span>Favorite wins 52%</span>
                     </div>
                 </div>
             `;
@@ -2879,23 +3212,51 @@
 
 
         function showTrends(container) {
-            // Victory margin trends
-            const marginsByYear = Object.entries(tournamentData.years || {}).map(([year, data]) => {
+            console.log('Trends - matchData:', matchData);
+            console.log('Trends - handicapData:', handicapData);
+            
+            // Check if match data is loaded
+            if (!matchData || Object.keys(matchData).length === 0) {
+                container.innerHTML = '<h2>Trends & Patterns</h2><p>Loading data...</p>';
+                return;
+            }
+            
+            // Victory margin trends from actual matchData
+            const marginsByYear = Object.entries(matchData).map(([year, data]) => {
                 // Parse score like "15.5-8.5" to calculate margin
-                const score = data.score || '';
+                const score = data.finalScore || '';
                 const parts = score.split('-').map(s => parseFloat(s));
                 const margin = parts.length === 2 ? Math.abs(parts[0] - parts[1]) : 0;
                 return {
                     year: parseInt(year),
-                    margin: margin
+                    margin: margin,
+                    score: score
                 };
             }).filter(m => m.margin > 0).sort((a, b) => a.year - b.year);
             
             const avgMarginEarly = marginsByYear.slice(0, 3).reduce((sum, m) => sum + m.margin, 0) / 3;
             const avgMarginRecent = marginsByYear.slice(-3).reduce((sum, m) => sum + m.margin, 0) / 3;
             
+            // Get all players from matchData
+            const allPlayers = new Set();
+            Object.values(matchData).forEach(yearData => {
+                ['scrambleResults', 'bestBallResults', 'singlesResults'].forEach(format => {
+                    yearData[format]?.forEach(match => {
+                        Object.values(match).forEach(value => {
+                            if (Array.isArray(value)) {
+                                value.forEach(name => {
+                                    if (typeof name === 'string' && name.length > 1) allPlayers.add(name);
+                                });
+                            } else if (typeof value === 'string' && value.length > 1 && !['W', 'L', 'T'].includes(value) && !value.includes('&')) {
+                                allPlayers.add(value);
+                            }
+                        });
+                    });
+                });
+            });
+            
             // Handicap improvement leaders
-            const handicapImprovements = playerList.map(player => {
+            const handicapImprovements = Array.from(allPlayers).map(player => {
                 if (!handicapData[player]) return null;
                 const years = Object.keys(handicapData[player]).sort();
                 if (years.length < 2) return null;
@@ -2914,28 +3275,43 @@
                 };
             }).filter(p => p && p.improvement > 0).sort((a, b) => b.improvement - a.improvement);
             
-            // Format correlations
-            const formatWinRates = calculateFormatSpecialists();
-            const strongestFormats = {};
+            // Format specialists from real data
+            const formatSpecialists = {
+                scramble: { name: '', wins: 0, total: 0, rate: 0 },
+                bestBall: { name: '', wins: 0, total: 0, rate: 0 },
+                singles: { name: '', wins: 0, total: 0, rate: 0 }
+            };
             
-            playerList.forEach(player => {
-                const rates = formatWinRates[player];
-                if (rates) {
-                    const formats = [
-                        { format: 'Fourball', rate: rates.fourball?.rate || 0 },
-                        { format: 'Alt Shot', rate: rates.altShot?.rate || 0 },
-                        { format: 'Singles', rate: rates.singles?.rate || 0 }
-                    ];
-                    formats.sort((a, b) => b.rate - a.rate);
-                    strongestFormats[player] = formats[0];
+            Array.from(allPlayers).forEach(player => {
+                const stats = getPlayerStatsFromMatchData(player);
+                
+                // Check scramble
+                const scrambleTotal = stats.scrambleRecord.W + stats.scrambleRecord.L + stats.scrambleRecord.T;
+                if (scrambleTotal > 0) {
+                    const scrambleRate = stats.scrambleRecord.W / scrambleTotal;
+                    if (scrambleRate > formatSpecialists.scramble.rate) {
+                        formatSpecialists.scramble = { name: player, wins: stats.scrambleRecord.W, total: scrambleTotal, rate: scrambleRate };
+                    }
+                }
+                
+                // Check best ball
+                const bestBallTotal = stats.bestBallRecord.W + stats.bestBallRecord.L + stats.bestBallRecord.T;
+                if (bestBallTotal > 0) {
+                    const bestBallRate = stats.bestBallRecord.W / bestBallTotal;
+                    if (bestBallRate > formatSpecialists.bestBall.rate) {
+                        formatSpecialists.bestBall = { name: player, wins: stats.bestBallRecord.W, total: bestBallTotal, rate: bestBallRate };
+                    }
+                }
+                
+                // Check singles
+                const singlesTotal = stats.singlesRecord.W + stats.singlesRecord.L + stats.singlesRecord.T;
+                if (singlesTotal > 0) {
+                    const singlesRate = stats.singlesRecord.W / singlesTotal;
+                    if (singlesRate > formatSpecialists.singles.rate) {
+                        formatSpecialists.singles = { name: player, wins: stats.singlesRecord.W, total: singlesTotal, rate: singlesRate };
+                    }
                 }
             });
-            
-            // Predictive patterns
-            const patterns = analyzePredictivePatterns();
-            
-            // Emerging storylines
-            const storylines = identifyEmergingStorylines();
             
             container.innerHTML = `
                 <h2>Trends & Patterns</h2>
@@ -2978,49 +3354,62 @@
                 </div>
                 
                 <div class="metric-card">
-                    <div class="metric-title">🔄 Format Correlations</div>
-                    <div class="metric-note">Strongest format for each player:</div>
-                    ${playerList.slice(0, 6).map(player => {
-                        if (!strongestFormats[player]) return '';
+                    <div class="metric-title">🎯 Format Specialists</div>
+                    <div class="metric-note">Highest win rate by format (min 3 matches):</div>
+                    ${formatSpecialists.scramble.total >= 3 ? `
+                        <div class="metric-item">
+                            <span>Scramble Champion</span>
+                            <span class="stat-value">${formatSpecialists.scramble.name} (${(formatSpecialists.scramble.rate * 100).toFixed(0)}%)</span>
+                        </div>
+                    ` : ''}
+                    ${formatSpecialists.bestBall.total >= 3 ? `
+                        <div class="metric-item">
+                            <span>Best Ball Expert</span>
+                            <span class="stat-value">${formatSpecialists.bestBall.name} (${(formatSpecialists.bestBall.rate * 100).toFixed(0)}%)</span>
+                        </div>
+                    ` : ''}
+                    ${formatSpecialists.singles.total >= 3 ? `
+                        <div class="metric-item">
+                            <span>Singles Specialist</span>
+                            <span class="stat-value">${formatSpecialists.singles.name} (${(formatSpecialists.singles.rate * 100).toFixed(0)}%)</span>
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-title">📈 Victory Margins by Year</div>
+                    ${marginsByYear.map(m => `
+                        <div class="metric-item">
+                            <span>${m.year}</span>
+                            <span class="stat-value">${m.score} (${m.margin} point margin)</span>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-title">📊 Match Count by Format</div>
+                    ${(() => {
+                        let scrambleCount = 0, bestBallCount = 0, singlesCount = 0;
+                        Object.values(matchData).forEach(yearData => {
+                            if (yearData.scrambleResults) scrambleCount += yearData.scrambleResults.length;
+                            if (yearData.bestBallResults) bestBallCount += yearData.bestBallResults.length;
+                            if (yearData.singlesResults) singlesCount += yearData.singlesResults.length;
+                        });
                         return `
-                        <div class="metric-item">
-                            <span>${player}</span>
-                            <span class="stat-value">
-                                ${strongestFormats[player].format} 
-                                (${(strongestFormats[player].rate * 100).toFixed(0)}%)
-                            </span>
-                        </div>
-                    `}).join('')}
-                </div>
-                
-                <div class="metric-card">
-                    <div class="metric-title">🔮 Predictive Patterns</div>
-                    ${patterns.map(pattern => `
-                        <div class="metric-item">
-                            <span>${pattern.description}</span>
-                            <span class="stat-value">${pattern.strength}</span>
-                        </div>
-                    `).join('')}
-                </div>
-                
-                <div class="metric-card">
-                    <div class="metric-title">📈 Emerging Storylines</div>
-                    ${storylines.map(story => `
-                        <div class="storyline">
-                            <div class="storyline-title">${story.title}</div>
-                            <div class="storyline-description">${story.description}</div>
-                        </div>
-                    `).join('')}
-                </div>
-                
-                <div class="metric-card">
-                    <div class="metric-title">📊 Statistical Anomalies</div>
-                    ${identifyStatisticalAnomalies().map(anomaly => `
-                        <div class="metric-item">
-                            <span>${anomaly.description}</span>
-                            <span class="stat-value">${anomaly.value}</span>
-                        </div>
-                    `).join('')}
+                            <div class="metric-item">
+                                <span>Total Scramble Matches</span>
+                                <span class="stat-value">${scrambleCount}</span>
+                            </div>
+                            <div class="metric-item">
+                                <span>Total Best Ball Matches</span>
+                                <span class="stat-value">${bestBallCount}</span>
+                            </div>
+                            <div class="metric-item">
+                                <span>Total Singles Matches</span>
+                                <span class="stat-value">${singlesCount}</span>
+                            </div>
+                        `;
+                    })()}
                 </div>
             `;
         }
