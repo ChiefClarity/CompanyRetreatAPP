@@ -2318,19 +2318,23 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${yearData.scrambleResults.map((match, idx) => `
+                                    ${yearData.scrambleResults.map((match, idx) => {
+                                        const captainKeys = Object.keys(yearData.captains || {});
+                                        const team1 = captainKeys[0];
+                                        const team2 = captainKeys[1];
+                                        return `
                                         <tr>
                                             <td>${idx + 1}</td>
-                                            <td>${match.pardo ? match.pardo.join(' & ') : ''}</td>
-                                            <td>${match.salas ? match.salas.join(' & ') : ''}</td>
-                                            <td class="${match.result === 'W' ? 'winner' : match.result === 'L' ? 'loser' : ''}">${match.result}</td>
-                                            <td>${match.score}</td>
+                                            <td>${match[team1] ? match[team1].join(' & ') : ''}</td>
+                                            <td>${match[team2] ? match[team2].join(' & ') : ''}</td>
+                                            <td class="${match.result === 'W' ? 'winner' : match.result === 'L' ? 'loser' : ''}">${match.result || ''}</td>
+                                            <td>${match.score || ''}</td>
                                         </tr>
-                                    `).join('')}
+                                    `}).join('')}
                                 </tbody>
                             </table>
                             <div style="text-align: right; margin-top: 1rem; font-weight: 600;">
-                                Day Total: ${yearData.dailyScores.friday.pardo || yearData.scrambleResults.filter(m => m.result === 'W').length} - ${yearData.dailyScores.friday.salas || yearData.scrambleResults.filter(m => m.result === 'L').length}
+                                Day Total: ${yearData.dailyScores?.friday?.[Object.keys(yearData.captains || {})[0]] || 0} - ${yearData.dailyScores?.friday?.[Object.keys(yearData.captains || {})[1]] || 0}
                             </div>
                         </div>
                     `;
@@ -2351,19 +2355,23 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${yearData.bestBallResults.map((match, idx) => `
+                                    ${yearData.bestBallResults.map((match, idx) => {
+                                        const captainKeys = Object.keys(yearData.captains || {});
+                                        const team1 = captainKeys[0];
+                                        const team2 = captainKeys[1];
+                                        return `
                                         <tr>
                                             <td>${idx + 1}</td>
-                                            <td>${match.pardo ? match.pardo.join(' & ') : ''}</td>
-                                            <td>${match.salas ? match.salas.join(' & ') : ''}</td>
-                                            <td class="${match.result === 'W' ? 'winner' : match.result === 'L' ? 'loser' : ''}">${match.result}</td>
-                                            <td>${match.score}</td>
+                                            <td>${match[team1] ? match[team1].join(' & ') : ''}</td>
+                                            <td>${match[team2] ? match[team2].join(' & ') : ''}</td>
+                                            <td class="${match.result === 'W' ? 'winner' : match.result === 'L' ? 'loser' : ''}">${match.result || ''}</td>
+                                            <td>${match.score || ''}</td>
                                         </tr>
-                                    `).join('')}
+                                    `}).join('')}
                                 </tbody>
                             </table>
                             <div style="text-align: right; margin-top: 1rem; font-weight: 600;">
-                                Day Total: ${yearData.dailyScores.saturday.pardo} - ${yearData.dailyScores.saturday.salas}
+                                Day Total: ${yearData.dailyScores?.saturday?.[Object.keys(yearData.captains || {})[0]] || 0} - ${yearData.dailyScores?.saturday?.[Object.keys(yearData.captains || {})[1]] || 0}
                             </div>
                         </div>
                     `;
@@ -2384,19 +2392,23 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${yearData.singlesResults.map((match, idx) => `
+                                    ${yearData.singlesResults.map((match, idx) => {
+                                        const captainKeys = Object.keys(yearData.captains || {});
+                                        const team1 = captainKeys[0];
+                                        const team2 = captainKeys[1];
+                                        return `
                                         <tr>
                                             <td>${idx + 1}</td>
-                                            <td>${match.pardo}</td>
-                                            <td>${match.salas}</td>
-                                            <td class="${match.result === 'W' ? 'winner' : match.result === 'L' ? 'loser' : ''}">${match.result}</td>
-                                            <td>${match.score}</td>
+                                            <td>${match[team1] || ''}</td>
+                                            <td>${match[team2] || ''}</td>
+                                            <td class="${match.result === 'W' ? 'winner' : match.result === 'L' ? 'loser' : ''}">${match.result || ''}</td>
+                                            <td>${match.score || ''}</td>
                                         </tr>
-                                    `).join('')}
+                                    `}).join('')}
                                 </tbody>
                             </table>
                             <div style="text-align: right; margin-top: 1rem; font-weight: 600;">
-                                Day Total: ${yearData.dailyScores.sunday.pardo} - ${yearData.dailyScores.sunday.salas}
+                                Day Total: ${yearData.dailyScores?.sunday?.[Object.keys(yearData.captains || {})[0]] || 0} - ${yearData.dailyScores?.sunday?.[Object.keys(yearData.captains || {})[1]] || 0}
                             </div>
                         </div>
                     `;
